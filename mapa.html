@@ -49,7 +49,8 @@ html,body{height:100%;background:var(--black);color:var(--text);font-family:var(
 
 /* ── MAIN ── */
 #main{display:flex;flex:1;overflow:hidden;height:calc(100vh - 52px - 56px);}
-#canvas-wrap{flex:1;overflow:auto;background:var(--black);display:flex;align-items:flex-start;justify-content:center;padding:16px;}
+#canvas-wrap{flex:1;overflow:auto;background:var(--black);padding:12px;}
+#canvas-outer{transform-origin:top left;display:inline-block;}
 
 /* ── CANVAS ── */
 #canvas{position:relative;background:#0d0b22;border:1px solid var(--border);border-radius:12px;overflow:hidden;flex-shrink:0;}
@@ -174,12 +175,17 @@ html,body{height:100%;background:var(--black);color:var(--text);font-family:var(
     </select>
     <button class="tb-btn" id="btn-save" onclick="saveLayout()">💾 Save</button>
     <button class="tb-btn" id="btn-all-layouts" onclick="openLayoutsModal()">📋 All</button>
+    <div class="tb-sep"></div>
+    <button class="tb-btn" id="btn-zoom-out" onclick="adjustZoom(-0.1)" title="Zoom out">−</button>
+    <span id="zoom-label" style="font-family:var(--font-m);font-size:10px;color:var(--text-muted);min-width:32px;text-align:center">100%</span>
+    <button class="tb-btn" id="btn-zoom-in" onclick="adjustZoom(0.1)" title="Zoom in">+</button>
+    <button class="tb-btn" id="btn-zoom-fit" onclick="fitCanvas(true)" title="Fit to screen">⊡ Fit</button>
   </div>
 
   <!-- MAIN -->
   <div id="main">
     <div id="canvas-wrap">
-      <div id="canvas"></div>
+      <div id="canvas-outer"><div id="canvas"></div></div>
     </div>
 
     <!-- PANEL EDICIÓN (solo admin) -->
@@ -453,9 +459,35 @@ function setSyncDot(on) {
   document.getElementById('sync-dot').className = 'sync-dot'+(on?'':' off');
 }
 
-// ─── CANVAS SIZE (se adapta al mapa activo) ───
-function getCanvasSize() {
-  return { w: 760, h: 500 };
+// ─── CANVAS SIZE ───
+function getCanvasSize() { return { w: 760, h: 500 }; }
+
+let canvasScale = 1;
+function fitCanvas(manual=false) {
+  const wrap = document.getElementById('canvas-wrap');
+  const outer = document.getElementById('canvas-outer');
+  const {w, h} = getCanvasSize();
+  const availW = wrap.clientWidth - 24;
+  const availH = wrap.clientHeight - 24;
+  const s = Math.min(1, Math.min(availW / w, availH / h));
+  canvasScale = manual ? s : Math.min(canvasScale || s, s > 0.95 ? 1 : s);
+  if (manual) canvasScale = s;
+  applyZoom();
+}
+function applyZoom() {
+  const outer = document.getElementById('canvas-outer');
+  if (!outer) return;
+  outer.style.transform = 'scale(' + canvasScale + ')';
+  const {w, h} = getCanvasSize();
+  // Make the wrap scrollable with correct scroll dimensions
+  outer.style.width = w + 'px';
+  outer.style.height = h + 'px';
+  const lbl = document.getElementById('zoom-label');
+  if (lbl) lbl.textContent = Math.round(canvasScale * 100) + '%';
+}
+function adjustZoom(delta) {
+  canvasScale = Math.max(0.3, Math.min(2, canvasScale + delta));
+  applyZoom();
 }
 
 // ─── RENDER MAP TABS ───
@@ -533,6 +565,8 @@ function confirmRenameMap() {
     .catch(() => toast('Error al renombrar'));
   closeModal('modal-rename-map');
   renderMapTabs();
+  setTimeout(() => { fitCanvas(true); }, 100);
+  window.addEventListener('resize', () => fitCanvas(false));
 }
 
 // ─── RENDER CANVAS ───
@@ -606,7 +640,8 @@ function startDrag(e) {
   e.preventDefault();
   dragging = tables.find(x=>x.id===+e.currentTarget.dataset.id);
   const r = document.getElementById('canvas').getBoundingClientRect();
-  dragOffX = e.clientX-r.left-dragging.x; dragOffY = e.clientY-r.top-dragging.y;
+  dragOffX = (e.clientX-r.left)/canvasScale - dragging.x;
+  dragOffY = (e.clientY-r.top)/canvasScale - dragging.y;
   document.addEventListener('mousemove', onDrag);
   document.addEventListener('mouseup', stopDrag);
 }
@@ -615,7 +650,8 @@ function startDragTouch(e) {
   const touch = e.touches[0];
   dragging = tables.find(x=>x.id===+e.currentTarget.dataset.id);
   const r = document.getElementById('canvas').getBoundingClientRect();
-  dragOffX = touch.clientX-r.left-dragging.x; dragOffY = touch.clientY-r.top-dragging.y;
+  dragOffX = (touch.clientX-r.left)/canvasScale - dragging.x;
+  dragOffY = (touch.clientY-r.top)/canvasScale - dragging.y;
   document.addEventListener('touchmove', onDragTouch, {passive:false});
   document.addEventListener('touchend', stopDrag);
 }
@@ -623,16 +659,16 @@ function onDrag(e) {
   if(!dragging) return;
   const {w,h} = getCanvasSize();
   const r = document.getElementById('canvas').getBoundingClientRect();
-  dragging.x = Math.max(0,Math.min(w-dragging.size, e.clientX-r.left-dragOffX));
-  dragging.y = Math.max(0,Math.min(h-dragging.size, e.clientY-r.top-dragOffY));
+  dragging.x = Math.max(0,Math.min(w-dragging.size, (e.clientX-r.left)/canvasScale - dragOffX));
+  dragging.y = Math.max(0,Math.min(h-dragging.size, (e.clientY-r.top)/canvasScale - dragOffY));
   render();
 }
 function onDragTouch(e) {
   if(!dragging) return; e.preventDefault();
   const t=e.touches[0]; const {w,h}=getCanvasSize();
   const r=document.getElementById('canvas').getBoundingClientRect();
-  dragging.x=Math.max(0,Math.min(w-dragging.size,t.clientX-r.left-dragOffX));
-  dragging.y=Math.max(0,Math.min(h-dragging.size,t.clientY-r.top-dragOffY));
+  dragging.x=Math.max(0,Math.min(w-dragging.size,(t.clientX-r.left)/canvasScale-dragOffX));
+  dragging.y=Math.max(0,Math.min(h-dragging.size,(t.clientY-r.top)/canvasScale-dragOffY));
   render();
 }
 function stopDrag() {

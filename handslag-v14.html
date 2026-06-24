@@ -1122,7 +1122,7 @@ function showConfirm(msg, onYes) {
   document.getElementById('confirmOverlay').style.display = 'flex';
 }
 function closeConfirm() { document.getElementById('confirmOverlay').style.display='none'; _confirmCb=null; }
-function confirmAction() { closeConfirm(); if(_confirmCb) _confirmCb(); }
+function confirmAction() { const cb = _confirmCb; closeConfirm(); if(cb) cb(); }
 
 function deleteGuest(id) {
   const L = T[lang]||T.en;
