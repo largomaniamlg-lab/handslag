@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Håndslag — Editor de Mapa</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#06061a;--surface:#0e0c24;--surface2:#14122e;--surface3:#1e1a3a;
+  --accent:#b44fff;--cyan:#06c8e8;--border:rgba(255,255,255,0.1);
+  --text:#f0f0f0;--muted:#888;--danger:#e05252;
+  --font:'Barlow Condensed',sans-serif;--mono:'Space Mono',monospace;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden;}
+
+/* LAYOUT */
+#app{display:flex;flex-direction:column;height:100vh;}
+#header{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);height:52px;flex-shrink:0;}
+.logo{font-size:20px;font-weight:700;background:linear-gradient(135deg,#b44fff,#06c8e8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:1px;}
+.page-title{font-family:var(--mono);font-size:11px;color:var(--muted);}
+.spacer{flex:1;}
+.btn{padding:8px 16px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all 0.15s;white-space:nowrap;}
+.btn:hover{background:var(--surface3);border-color:rgba(255,255,255,0.2);}
+.btn.primary{background:linear-gradient(135deg,#b44fff,#06c8e8);color:#000;border:none;font-weight:700;}
+.btn.primary:hover{opacity:0.9;}
+.btn.danger{border-color:rgba(224,82,82,0.4);color:var(--danger);}
+.btn.danger:hover{background:rgba(224,82,82,0.1);}
+#sync-indicator{font-family:var(--mono);font-size:10px;color:var(--muted);display:flex;align-items:center;gap:6px;}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+.dot.off{background:var(--muted);}
+
+/* MAIN */
+#main{display:flex;flex:1;overflow:hidden;}
+
+/* CANVAS AREA */
+#canvas-area{flex:1;overflow:auto;background:#030310;display:flex;align-items:center;justify-content:center;padding:24px;position:relative;}
+#canvas{position:relative;background:#0d0b22;border-radius:14px;border:1px solid rgba(255,255,255,0.12);overflow:hidden;cursor:crosshair;}
+#canvas.move-mode{cursor:default;}
+.grid-overlay{position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,0.08) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;border-radius:14px;}
+
+/* Zone bg */
+.zone-bg{position:absolute;border-radius:8px;pointer-events:none;}
+.zone-label{position:absolute;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;pointer-events:none;font-weight:700;}
+.bar-shape{position:absolute;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;letter-spacing:0.5px;text-transform:uppercase;pointer-events:none;}
+.door-marker{position:absolute;font-family:var(--mono);font-size:8px;color:rgba(255,255,255,0.45);pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:2px;}
+
+/* Tables */
+.tbl{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:grab;user-select:none;transition:box-shadow 0.12s;}
+.tbl:active{cursor:grabbing;}
+.tbl.round{border-radius:50%;}
+.tbl.square{border-radius:10px;}
+.tbl.selected{box-shadow:0 0 0 3px #fff,0 0 20px rgba(255,255,255,0.2);}
+.tbl:hover{opacity:0.9;}
+.tbl-num{font-family:var(--mono);font-weight:700;color:#fff;line-height:1;text-shadow:0 1px 4px rgba(0,0,0,0.7);pointer-events:none;}
+.tbl-sub{font-family:var(--mono);color:rgba(255,255,255,0.65);line-height:1;margin-top:2px;pointer-events:none;}
+
+/* SIDEBAR */
+#sidebar{width:260px;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;}
+#sidebar-header{padding:14px 16px;border-bottom:1px solid var(--border);}
+#sidebar-header h3{font-family:var(--mono);font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:1px;}
+#sidebar-body{flex:1;overflow-y:auto;padding:16px;}
+.field-group{margin-bottom:16px;}
+.field-label{font-family:var(--mono);font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;display:block;}
+.field-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--mono);font-size:13px;padding:9px 11px;outline:none;}
+.field-input:focus{border-color:var(--cyan);}
+.color-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;}
+.cc{width:100%;aspect-ratio:1;border-radius:7px;border:2px solid transparent;cursor:pointer;transition:transform 0.1s,border-color 0.1s;}
+.cc:hover{transform:scale(1.1);}
+.cc.on{border-color:#fff;transform:scale(1.08);}
+.shape-row{display:flex;gap:6px;}
+.sopt{flex:1;padding:8px 4px;border:1px solid var(--border);border-radius:8px;font-family:var(--mono);font-size:10px;text-align:center;cursor:pointer;color:var(--muted);background:var(--surface2);transition:all 0.1s;}
+.sopt:hover{border-color:rgba(255,255,255,0.25);}
+.sopt.on{border-color:var(--cyan);color:var(--cyan);background:rgba(6,200,232,0.1);}
+.sz-row{display:flex;align-items:center;gap:8px;}
+.sz-btn{width:36px;height:36px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.sz-btn:hover{background:var(--surface3);}
+#sz-val{flex:1;text-align:center;font-family:var(--mono);font-size:13px;}
+.sep{height:1px;background:var(--border);margin:16px 0;}
+.no-sel{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;padding:24px 0;line-height:1.8;}
+
+/* TABLE LIST */
+#table-list{border-top:1px solid var(--border);padding:12px;}
+#table-list h4{font-family:var(--mono);font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;}
+.tlist-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;transition:background 0.1s;}
+.tlist-item:hover{background:var(--surface2);}
+.tlist-item.active{background:var(--surface3);}
+.tlist-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
+.tlist-name{font-family:var(--mono);font-size:11px;flex:1;}
+.tlist-del{background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px;padding:2px 4px;opacity:0.5;}
+.tlist-del:hover{opacity:1;}
+
+/* TOAST */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--accent);color:#000;font-family:var(--mono);font-size:11px;font-weight:700;padding:10px 20px;border-radius:20px;transition:transform 0.3s;z-index:600;pointer-events:none;}
+#toast.show{transform:translateX(-50%) translateY(0);}
+
+/* PUBLISH FEEDBACK */
+#pub-status{font-family:var(--mono);font-size:10px;padding:4px 10px;border-radius:6px;background:rgba(46,204,113,0.15);color:#2ecc71;border:1px solid rgba(46,204,113,0.3);display:none;}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- HEADER -->
+  <div id="header">
+    <span class="logo">Håndslag</span>
+    <span class="page-title">/ editor de mapa</span>
+    <div class="spacer"></div>
+    <span id="pub-status">✓ Publicado</span>
+    <div id="sync-indicator"><div class="dot" id="dot"></div><span id="dot-label">Conectando...</span></div>
+    <button class="btn" onclick="addTable()">+ Mesa</button>
+    <button class="btn" onclick="resetToDefault()">↺ Plano por defecto</button>
+    <button class="btn primary" onclick="publish()">📡 Publicar cambios</button>
+  </div>
+
+  <div id="main">
+    <!-- CANVAS -->
+    <div id="canvas-area">
+      <div id="canvas">
+        <div class="grid-overlay"></div>
+      </div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <div id="sidebar">
+      <div id="sidebar-header"><h3 id="panel-title">Selecciona una mesa</h3></div>
+      <div id="sidebar-body">
+        <div id="no-sel-msg" class="no-sel">Haz click en una mesa<br>para editarla.<br><br>Arrastra para moverla.</div>
+        <div id="edit-fields" style="display:none">
+          <div class="field-group">
+            <span class="field-label">Número / Nombre</span>
+            <input class="field-input" id="f-name" type="text" placeholder="Ej: 5, VIP1..." oninput="updateSel('name',this.value)"/>
+          </div>
+          <div class="field-group">
+            <span class="field-label">Zona / Descripción</span>
+            <input class="field-input" id="f-sub" type="text" placeholder="Ej: Kaffe, VIP..." oninput="updateSel('sub',this.value)"/>
+          </div>
+          <div class="field-group">
+            <span class="field-label">Color</span>
+            <div class="color-grid" id="color-grid"></div>
+          </div>
+          <div class="field-group">
+            <span class="field-label">Forma</span>
+            <div class="shape-row">
+              <div class="sopt" id="sopt-round" onclick="updateSel('shape','round')">⬤ Redonda</div>
+              <div class="sopt" id="sopt-square" onclick="updateSel('shape','square')">◼ Cuadrada</div>
+            </div>
+          </div>
+          <div class="field-group">
+            <span class="field-label">Tamaño</span>
+            <div class="sz-row">
+              <button class="sz-btn" onclick="changeSize(-5)">−</button>
+              <span id="sz-val">70px</span>
+              <button class="sz-btn" onclick="changeSize(+5)">+</button>
+            </div>
+          </div>
+          <div class="sep"></div>
+          <button class="btn danger" style="width:100%;padding:10px" onclick="deleteSelected()">🗑 Eliminar mesa</button>
+        </div>
+      </div>
+      <!-- TABLE LIST -->
+      <div id="table-list">
+        <h4>Todas las mesas (<span id="table-count">0</span>)</h4>
+        <div id="tlist"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+const FB_CFG={apiKey:"AIzaSyC4c-4MXb9lrVMiHWn_0tE6PKIOU_lScRs",authDomain:"handslag-fdd42.firebaseapp.com",databaseURL:"https://handslag-fdd42-default-rtdb.europe-west1.firebasedatabase.app",projectId:"handslag-fdd42",storageBucket:"handslag-fdd42.appspot.com",messagingSenderId:"1090291987706",appId:"1:1090291987706:web:0effe68dc7e7faa1ef06cd"};
+firebase.initializeApp(FB_CFG);
+const db=firebase.database();
+
+const CW=800,CH=560,SNAP=20;
+const PALETTE=['#b44fff','#06c8e8','#2ecc71','#3498db','#e74c3c','#e67e22','#f1c40f','#e91e8c','#795548','#37474f','#607d8b','#1abc9c'];
+const ZONES=[
+  {x:175,y:0,w:625,h:112,color:'rgba(96,125,139,0.18)',label:'KAFFE',lx:185,ly:6,lcolor:'rgba(150,200,220,0.5)'},
+  {x:612,y:115,w:165,h:310,color:'rgba(180,79,255,0.08)',label:'',lx:0,ly:0,lcolor:''},
+  {x:10,y:418,w:165,h:130,color:'rgba(180,79,255,0.12)',label:'DANCEFLOOR',lx:15,ly:423,lcolor:'rgba(180,79,255,0.6)'},
+];
+const DEFAULT_TABLES=[
+  {id:3,name:'3',sub:'Kaffe',x:232,y:20,color:'#607d8b',shape:'square',size:72},
+  {id:2,name:'2',sub:'Kaffe',x:382,y:20,color:'#607d8b',shape:'square',size:72},
+  {id:1,name:'1',sub:'Kaffe',x:532,y:20,color:'#607d8b',shape:'square',size:72},
+  {id:4,name:'4',sub:'',x:20,y:118,color:'#3498db',shape:'square',size:68},
+  {id:5,name:'5',sub:'',x:20,y:198,color:'#3498db',shape:'square',size:68},
+  {id:6,name:'6',sub:'',x:20,y:278,color:'#3498db',shape:'square',size:68},
+  {id:7,name:'7',sub:'',x:20,y:348,color:'#3498db',shape:'square',size:68},
+  {id:8,name:'8',sub:'',x:20,y:420,color:'#3498db',shape:'square',size:68},
+  {id:16,name:'16',sub:'',x:622,y:118,color:'#b44fff',shape:'round',size:70},
+  {id:17,name:'17',sub:'',x:622,y:198,color:'#b44fff',shape:'round',size:70},
+  {id:18,name:'18',sub:'',x:622,y:278,color:'#b44fff',shape:'round',size:70},
+  {id:19,name:'19',sub:'',x:622,y:358,color:'#b44fff',shape:'round',size:70},
+  {id:9,name:'9',sub:'Dancefloor',x:22,y:470,color:'#e91e8c',shape:'square',size:65},
+  {id:10,name:'10',sub:'',x:200,y:462,color:'#2ecc71',shape:'square',size:68},
+  {id:11,name:'11',sub:'',x:308,y:462,color:'#2ecc71',shape:'round',size:65},
+  {id:12,name:'12',sub:'',x:388,y:462,color:'#2ecc71',shape:'round',size:65},
+  {id:13,name:'13',sub:'',x:468,y:462,color:'#2ecc71',shape:'round',size:65},
+  {id:14,name:'14',sub:'',x:556,y:462,color:'#2ecc71',shape:'round',size:65},
+  {id:15,name:'15',sub:'',x:638,y:462,color:'#2ecc71',shape:'round',size:65},
+];
+
+let tables=[],selected=null,nextId=100,dragging=null,dragOffX=0,dragOffY=0,unsaved=false;
+
+// INIT
+window.addEventListener('load',()=>{
+  setupCanvas();
+  buildColorGrid();
+  db.ref('.info/connected').on('value',s=>{
+    document.getElementById('dot').className='dot'+(s.val()?'':' off');
+    document.getElementById('dot-label').textContent=s.val()?'Conectado':'Sin conexión';
+  });
+  db.ref('mapa_v2/main/tables').once('value',snap=>{
+    const raw=snap.val();
+    tables=raw?(Array.isArray(raw)?raw:Object.values(raw)).filter(Boolean):DEFAULT_TABLES.map(t=>({...t}));
+    nextId=Math.max(nextId,...tables.map(t=>t.id||0))+1;
+    render();renderTableList();
+  });
+});
+
+function setupCanvas(){
+  const canvas=document.getElementById('canvas');
+  canvas.style.width=CW+'px';canvas.style.height=CH+'px';
+  canvas.addEventListener('mousedown',onCanvasDown);
+  document.addEventListener('mousemove',onMouseMove);
+  document.addEventListener('mouseup',onMouseUp);
+  canvas.addEventListener('click',e=>{if(e.target===canvas||e.target.classList.contains('grid-overlay')){selectTable(null);}});
+}
+
+function snap(v){return Math.round(v/SNAP)*SNAP;}
+
+// DRAG
+function onCanvasDown(e){
+  const tEl=e.target.closest('.tbl');
+  if(!tEl)return;
+  const t=tables.find(x=>x.id===+tEl.dataset.id);
+  if(!t)return;
+  e.preventDefault();
+  selectTable(t);
+  dragging=t;
+  const r=document.getElementById('canvas').getBoundingClientRect();
+  dragOffX=e.clientX-r.left-t.x;
+  dragOffY=e.clientY-r.top-t.y;
+}
+function onMouseMove(e){
+  if(!dragging)return;
+  const r=document.getElementById('canvas').getBoundingClientRect();
+  dragging.x=snap(Math.max(0,Math.min(CW-dragging.size,e.clientX-r.left-dragOffX)));
+  dragging.y=snap(Math.max(0,Math.min(CH-dragging.size,e.clientY-r.top-dragOffY)));
+  renderTableEl(dragging);
+  unsaved=true;
+}
+function onMouseUp(){
+  if(dragging){unsaved=true;}
+  dragging=null;
+}
+
+// RENDER
+function render(){
+  const canvas=document.getElementById('canvas');
+  // Keep grid overlay
+  const grid=canvas.querySelector('.grid-overlay');
+  canvas.innerHTML='';
+  canvas.appendChild(grid);
+
+  // Zones
+  ZONES.forEach(z=>{
+    const d=document.createElement('div');d.className='zone-bg';
+    d.style.cssText=`left:${z.x}px;top:${z.y}px;width:${z.w}px;height:${z.h}px;background:${z.color};border:1px solid rgba(255,255,255,0.07);`;
+    canvas.appendChild(d);
+    if(z.label){const l=document.createElement('div');l.className='zone-label';l.style.cssText=`left:${z.lx}px;top:${z.ly}px;color:${z.lcolor};`;l.textContent=z.label;canvas.appendChild(l);}
+  });
+
+  // Bar shapes
+  [{x:157,y:117,w:351,h:126,color:'rgba(255,255,255,0.05)',label:'MAIN BAR'},
+   {x:297,y:250,w:171,h:136,color:'rgba(255,255,255,0.07)',label:'BACK BAR'},
+  ].forEach(b=>{
+    const d=document.createElement('div');d.className='bar-shape';
+    d.style.cssText=`left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px;background:${b.color};border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.3);font-size:10px;letter-spacing:1px;`;
+    d.textContent=b.label;canvas.appendChild(d);
+  });
+
+  // Markers
+  const ent=document.createElement('div');ent.className='door-marker';ent.style.cssText='left:6px;top:6px;';ent.innerHTML='<span style="font-size:16px">🚪</span><span>ENTRANCE</span>';canvas.appendChild(ent);
+  const bk=document.createElement('div');bk.className='door-marker';bk.style.cssText='right:6px;bottom:6px;align-items:flex-end;';bk.innerHTML='<span style="font-size:14px">↗</span><span>BACKYARD</span>';canvas.appendChild(bk);
+  const dj=document.createElement('div');dj.style.cssText='position:absolute;left:152px;bottom:8px;width:42px;height:42px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;pointer-events:none;';dj.textContent='🎧';canvas.appendChild(dj);
+
+  // Tables
+  tables.forEach(t=>canvas.appendChild(createTableEl(t)));
+}
+
+function createTableEl(t){
+  const sz=t.size||70,fs=sz>70?16:13;
+  const el=document.createElement('div');
+  el.className='tbl '+(t.shape||'round')+(selected===t?' selected':'');
+  el.dataset.id=t.id;
+  el.style.cssText=`left:${t.x}px;top:${t.y}px;width:${sz}px;height:${sz}px;background:${t.color};`;
+  el.innerHTML=`<span class="tbl-num" style="font-size:${fs}px">${t.name}</span>${t.sub?`<span class="tbl-sub" style="font-size:${sz>70?9:7}px">${t.sub}</span>`:''}`;
+  el.addEventListener('click',e=>{e.stopPropagation();selectTable(t);});
+  return el;
+}
+function renderTableEl(t){
+  const canvas=document.getElementById('canvas');
+  const old=canvas.querySelector(`.tbl[data-id="${t.id}"]`);
+  const neo=createTableEl(t);
+  if(old)canvas.replaceChild(neo,old);
+}
+
+// SELECT
+function selectTable(t){
+  selected=t;
+  document.querySelectorAll('.tbl').forEach(el=>el.classList.toggle('selected',el.dataset.id===(t?String(t.id):null)));
+  document.getElementById('no-sel-msg').style.display=t?'none':'block';
+  document.getElementById('edit-fields').style.display=t?'block':'none';
+  document.getElementById('panel-title').textContent=t?`Mesa ${t.name}`:'Selecciona una mesa';
+  if(t){
+    document.getElementById('f-name').value=t.name;
+    document.getElementById('f-sub').value=t.sub||'';
+    document.getElementById('sz-val').textContent=(t.size||70)+'px';
+    syncCC(t.color);
+    document.getElementById('sopt-round').className='sopt'+(t.shape!=='square'?' on':'');
+    document.getElementById('sopt-square').className='sopt'+(t.shape==='square'?' on':'');
+  }
+  renderTableList();
+}
+
+// EDIT
+function updateSel(key,val){
+  if(!selected)return;
+  selected[key]=val;
+  if(key==='shape'){
+    document.getElementById('sopt-round').className='sopt'+(val==='round'?' on':'');
+    document.getElementById('sopt-square').className='sopt'+(val==='square'?' on':'');
+  }
+  if(key==='color')syncCC(val);
+  renderTableEl(selected);
+  renderTableList();
+  unsaved=true;
+}
+function changeSize(d){
+  if(!selected)return;
+  selected.size=Math.max(40,Math.min(130,(selected.size||70)+d));
+  document.getElementById('sz-val').textContent=selected.size+'px';
+  renderTableEl(selected);unsaved=true;
+}
+function buildColorGrid(){
+  const g=document.getElementById('color-grid');
+  PALETTE.forEach(hex=>{
+    const c=document.createElement('div');c.className='cc';c.style.background=hex;c.dataset.color=hex;
+    c.addEventListener('click',()=>updateSel('color',hex));
+    g.appendChild(c);
+  });
+}
+function syncCC(color){document.querySelectorAll('.cc').forEach(c=>c.classList.toggle('on',c.dataset.color===color));}
+function deleteSelected(){
+  if(!selected||!confirm('¿Eliminar "'+selected.name+'"?'))return;
+  tables=tables.filter(t=>t!==selected);selected=null;
+  render();renderTableList();
+  document.getElementById('no-sel-msg').style.display='block';
+  document.getElementById('edit-fields').style.display='none';
+  document.getElementById('panel-title').textContent='Selecciona una mesa';
+  unsaved=true;toast('Mesa eliminada');
+}
+
+// ADD TABLE
+function addTable(){
+  const t={id:nextId++,name:String(tables.length+1),sub:'',x:snap(Math.random()*500+100),y:snap(Math.random()*400+60),color:'#b44fff',shape:'round',size:70};
+  tables.push(t);render();renderTableList();selectTable(t);unsaved=true;
+  document.getElementById('f-name').focus();
+  document.getElementById('f-name').select();
+}
+
+// TABLE LIST
+function renderTableList(){
+  const list=document.getElementById('tlist');
+  document.getElementById('table-count').textContent=tables.length;
+  list.innerHTML='';
+  [...tables].sort((a,b)=>isNaN(a.name)?1:isNaN(b.name)?-1:+a.name-+b.name).forEach(t=>{
+    const row=document.createElement('div');row.className='tlist-item'+(selected===t?' active':'');
+    row.innerHTML=`<div class="tlist-dot" style="background:${t.color};border-radius:${t.shape==='square'?'3px':'50%'}"></div><span class="tlist-name">${t.name}${t.sub?' — '+t.sub:''}</span><button class="tlist-del" onclick="event.stopPropagation();quickDelete(${t.id})">✕</button>`;
+    row.addEventListener('click',()=>selectTable(t));
+    list.appendChild(row);
+  });
+}
+function quickDelete(id){
+  if(!confirm('¿Eliminar esta mesa?'))return;
+  if(selected&&selected.id===id)selected=null;
+  tables=tables.filter(t=>t.id!==id);render();renderTableList();unsaved=true;
+}
+
+// RESET
+function resetToDefault(){
+  if(!confirm('¿Cargar el plano por defecto? Se perderán los cambios no publicados.'))return;
+  tables=DEFAULT_TABLES.map(t=>({...t}));nextId=100;selected=null;
+  render();renderTableList();
+  document.getElementById('no-sel-msg').style.display='block';
+  document.getElementById('edit-fields').style.display='none';
+  document.getElementById('panel-title').textContent='Selecciona una mesa';
+  unsaved=true;toast('Plano por defecto cargado');
+}
+
+// PUBLISH
+function publish(){
+  const btn=document.querySelector('.btn.primary');
+  btn.textContent='Publicando...';btn.disabled=true;
+  db.ref('mapa_v2/main/tables').set(tables.map(t=>({...t}))).then(()=>{
+    unsaved=false;btn.textContent='📡 Publicar cambios';btn.disabled=false;
+    const st=document.getElementById('pub-status');st.style.display='block';
+    setTimeout(()=>st.style.display='none',3000);
+    toast('✓ Mapa publicado — visible en el móvil');
+  }).catch(e=>{btn.textContent='📡 Publicar cambios';btn.disabled=false;toast('Error al publicar: '+e.message);});
+}
+
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2500);}
+
+// Warn before leaving with unsaved changes
+window.addEventListener('beforeunload',e=>{if(unsaved){e.preventDefault();e.returnValue='';}});
+</script>
+</body>
+</html>
