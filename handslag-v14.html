@@ -266,6 +266,27 @@ body::before {
 .promo-table tr:last-child td { border-bottom:none; }
 .promo-bar-wrap { display:inline-block; width:36px; height:3px; background:var(--surface2); border-radius:2px; vertical-align:middle; margin-left:4px; overflow:hidden; }
 .promo-bar-fill { height:100%; background:var(--grad); border-radius:2px; }
+
+/* ── GUEST PROFILE MODAL ── */
+#profile-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:450;align-items:flex-end;justify-content:center;}
+#profile-overlay.open{display:flex;}
+#profile-sheet{background:var(--surface);border-top:2px solid var(--accent);border-radius:20px 20px 0 0;padding:20px 20px 40px;width:100%;max-width:540px;max-height:90vh;overflow-y:auto;transform:translateY(100%);transition:transform 0.3s ease;}
+#profile-sheet.open{transform:translateY(0);}
+.ps-handle{width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px;}
+.ps-name{font-size:26px;font-weight:700;color:var(--accent);font-family:'Barlow Condensed',sans-serif;margin-bottom:16px;}
+.ps-label{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin:12px 0 5px;display:block;}
+.ps-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'Space Mono',monospace;font-size:13px;padding:10px 12px;outline:none;resize:none;}
+.ps-input:focus{border-color:var(--accent);}
+.ps-payment-row{display:flex;gap:8px;margin-bottom:8px;}
+.ps-pay-opt{flex:1;padding:10px;border:1px solid var(--border);border-radius:10px;font-family:'Space Mono',monospace;font-size:11px;text-align:center;cursor:pointer;color:var(--muted);background:var(--surface2);transition:all 0.15s;}
+.ps-pay-opt.active{border-color:var(--accent);color:var(--accent);background:rgba(180,79,255,0.15);}
+.ps-nok-row{display:flex;align-items:center;gap:8px;}
+.ps-nok-input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'Space Mono',monospace;font-size:16px;padding:10px 12px;outline:none;}
+.ps-nok-input:focus{border-color:var(--accent);}
+.ps-nok-lbl{font-family:'Space Mono',monospace;font-size:12px;color:var(--muted);}
+.ps-save{width:100%;padding:14px;background:linear-gradient(135deg,#b44fff,#06c8e8);border:none;border-radius:10px;color:#000;font-family:'Space Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;margin-top:18px;}
+.ps-badge-nok{background:rgba(46,204,113,0.15);border:1px solid rgba(46,204,113,0.3);color:#2ecc71;font-size:0.65rem;padding:2px 6px;border-radius:4px;font-family:'Space Mono',monospace;}
+.ps-badge-free{background:rgba(108,117,125,0.2);border:1px solid rgba(108,117,125,0.3);color:var(--muted);font-size:0.65rem;padding:2px 6px;border-radius:4px;font-family:'Space Mono',monospace;}
 </style>
 </head>
 <body>
@@ -1084,8 +1105,8 @@ function renderList() {
     return `<div class="guest-card ${g.checkedIn?'checked-in':''}" style="border-left:3px solid ${allIn?'var(--success)':g.checkedIn?'rgba(0,230,118,0.4)':col+'40'}">
       <div class="guest-avatar" style="color:${col}">${initials}</div>
       <div class="guest-info">
-        <div class="guest-name">${g.name}</div>
-        <div class="guest-meta">${badges}</div>
+        <div class="guest-name" onclick="event.stopPropagation();openProfile(${g.id})" style="cursor:pointer">${g.name} <span style="opacity:0.4;font-size:0.7rem">ℹ</span></div>
+        <div class="guest-meta">${badges}${g.paymentType==="paid"&&g.paymentAmount?`<span class="ps-badge-nok">${g.paymentAmount} NOK</span>`:g.paymentType==="free"?'<span class="ps-badge-free">Gratis</span>':''}</div>
         ${companionCounter}
       </div>
       <div class="guest-actions">
@@ -1682,6 +1703,79 @@ document.addEventListener('keydown', e=>{
     if(document.getElementById('calModal').classList.contains('open') && selectedCalDay) saveDayEvent();
   }
 });
+
+// ══════════════════════════════════════════
+//  GUEST PROFILE
+// ══════════════════════════════════════════
+let _profileGuestId = null;
+function openProfile(id) {
+  const g = guests().find(x => x.id === id);
+  if (!g) return;
+  _profileGuestId = id;
+  document.getElementById('ps-name-title').textContent = g.name;
+  document.getElementById('ps-email').value = g.email || '';
+  document.getElementById('ps-phone').value = g.phone || '';
+  document.getElementById('ps-table').value = g.table || '';
+  document.getElementById('ps-notes').value = g.notes || '';
+  setPayType(g.paymentType || 'free');
+  document.getElementById('ps-amount').value = g.paymentAmount || '';
+  document.getElementById('profile-overlay').classList.add('open');
+  document.getElementById('profile-sheet').classList.add('open');
+}
+function closeProfile() {
+  document.getElementById('profile-overlay').classList.remove('open');
+  document.getElementById('profile-sheet').classList.remove('open');
+  _profileGuestId = null;
+}
+function setPayType(type) {
+  document.getElementById('pay-free').className = 'ps-pay-opt' + (type === 'free' ? ' active' : '');
+  document.getElementById('pay-paid').className = 'ps-pay-opt' + (type === 'paid' ? ' active' : '');
+  document.getElementById('pay-amount-row').style.display = type === 'paid' ? 'block' : 'none';
+}
+function saveProfile() {
+  const g = guests().find(x => x.id === _profileGuestId);
+  if (!g) return;
+  g.email = document.getElementById('ps-email').value.trim();
+  g.phone = document.getElementById('ps-phone').value.trim();
+  g.table = document.getElementById('ps-table').value.trim();
+  g.notes = document.getElementById('ps-notes').value.trim();
+  g.paymentType = document.getElementById('pay-paid').classList.contains('active') ? 'paid' : 'free';
+  g.paymentAmount = g.paymentType === 'paid' ? (parseFloat(document.getElementById('ps-amount').value) || 0) : 0;
+  fbUpdateGuest(currentEvent, currentCategory, g);
+  closeProfile();
+  renderList();
+  showToast(tx('toastSaved') || 'Guardado ✓');
+}
+
 </script>
+
+<!-- GUEST PROFILE SHEET -->
+<div id="profile-overlay" onclick="closeProfile()">
+  <div id="profile-sheet" onclick="event.stopPropagation()">
+    <div class="ps-handle"></div>
+    <div class="ps-name" id="ps-name-title"></div>
+    <span class="ps-label">Email</span>
+    <input class="ps-input" id="ps-email" type="email" inputmode="email" placeholder="ejemplo@correo.com"/>
+    <span class="ps-label">Teléfono</span>
+    <input class="ps-input" id="ps-phone" type="tel" inputmode="tel" placeholder="+47 000 00 000"/>
+    <span class="ps-label">Mesa</span>
+    <input class="ps-input" id="ps-table" type="text" placeholder="Ej: VIP1, 5..."/>
+    <span class="ps-label">Notas</span>
+    <textarea class="ps-input" id="ps-notes" rows="3" placeholder="Alergias, preferencias, observaciones..."></textarea>
+    <span class="ps-label">Pago (NOK)</span>
+    <div class="ps-payment-row">
+      <div class="ps-pay-opt active" id="pay-free" onclick="setPayType('free')">🎟 Gratis</div>
+      <div class="ps-pay-opt" id="pay-paid" onclick="setPayType('paid')">💳 Pago</div>
+    </div>
+    <div id="pay-amount-row" style="display:none">
+      <div class="ps-nok-row">
+        <input class="ps-nok-input" id="ps-amount" type="number" inputmode="numeric" placeholder="0" min="0"/>
+        <span class="ps-nok-lbl">NOK</span>
+      </div>
+    </div>
+    <button class="ps-save" onclick="saveProfile()">✓ Guardar</button>
+  </div>
+</div>
+
 </body>
 </html>
