@@ -17,7 +17,7 @@
 }
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden;}
 #lock{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
-.lock-logo{font-size:28px;font-weight:700;letter-spacing:2px;background:linear-gradient(135deg,#b44fff,#06c8e8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.lock-logo{font-size:28px;font-weight:700;background:linear-gradient(135deg,#b44fff,#06c8e8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
 #app{display:none;flex-direction:column;height:100vh;}
 #hdr{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface);border-bottom:1px solid var(--border);height:50px;flex-shrink:0;}
 .logo{font-size:18px;font-weight:700;background:linear-gradient(135deg,#b44fff,#06c8e8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
@@ -29,37 +29,27 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .mbtn{flex:1;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--muted);font-family:var(--mono);font-size:11px;cursor:pointer;text-align:center;touch-action:manipulation;}
 .mbtn.active{background:rgba(180,79,255,0.2);border-color:var(--accent);color:var(--accent);font-weight:700;}
 .mbtn.active-edit{background:rgba(6,200,232,0.15);border-color:var(--cyan);color:var(--cyan);font-weight:700;}
-#hint{font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center;flex:2;line-height:1.4;}
+#hint{font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center;flex:2;}
 #wrap{flex:1;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:10px;}
 #canvas-outer{transform-origin:center center;}
-#canvas{position:relative;background:#0d0b22;border-radius:12px;border:1px solid rgba(255,255,255,0.12);overflow:hidden;}
-
-/* Zones */
-.zone-bg{position:absolute;border-radius:8px;pointer-events:none;}
-.zone-label{position:absolute;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;pointer-events:none;font-weight:700;}
-.bar-shape{position:absolute;border-radius:6px;pointer-events:none;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;letter-spacing:0.5px;text-transform:uppercase;}
-.door-marker{position:absolute;font-family:var(--mono);font-size:8px;letter-spacing:0.5px;color:rgba(255,255,255,0.5);pointer-events:none;display:flex;align-items:center;gap:3px;}
-
-/* Tables */
+#canvas{position:relative;background:#0d0b22;border-radius:14px;border:1px solid rgba(255,255,255,0.1);overflow:hidden;}
+.zone{position:absolute;border-radius:10px;pointer-events:none;}
+.zlabel{position:absolute;font-family:var(--mono);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;pointer-events:none;}
 .tbl{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;touch-action:manipulation;user-select:none;-webkit-tap-highlight-color:transparent;transition:transform 0.12s,box-shadow 0.12s;}
-.tbl:active{transform:scale(0.95);}
+.tbl:active{transform:scale(0.94);}
 .tbl.round{border-radius:50%;}
-.tbl.square{border-radius:8px;}
-.tbl.selected{box-shadow:0 0 0 3px #fff,0 0 16px rgba(255,255,255,0.25);transform:scale(1.06);}
-.tbl-num{font-family:var(--mono);font-weight:700;color:#fff;line-height:1;text-shadow:0 1px 4px rgba(0,0,0,0.7);}
-.tbl-sub{font-family:var(--mono);color:rgba(255,255,255,0.65);line-height:1;margin-top:2px;}
-
-/* Info sheet */
+.tbl.square{border-radius:9px;}
+.tbl.selected{box-shadow:0 0 0 3px #fff,0 0 18px rgba(255,255,255,0.2);transform:scale(1.07);}
+.tbl-num{font-family:var(--mono);font-weight:700;color:#fff;line-height:1;text-shadow:0 1px 4px rgba(0,0,0,0.8);pointer-events:none;}
+.tbl-sub{font-family:var(--mono);color:rgba(255,255,255,0.6);line-height:1;margin-top:2px;pointer-events:none;}
 #info-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:300;}
 #info-overlay.open{display:block;}
-#info-sheet{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:2px solid var(--accent);border-radius:20px 20px 0 0;padding:20px 20px 36px;z-index:301;transform:translateY(100%);transition:transform 0.3s ease;}
+#info-sheet{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:2px solid var(--accent);border-radius:20px 20px 0 0;padding:20px 20px 40px;z-index:301;transform:translateY(100%);transition:transform 0.3s ease;}
 #info-sheet.open{transform:translateY(0);}
 .sh-handle{width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 14px;}
-.sh-name{font-size:44px;font-weight:700;color:var(--accent);font-family:var(--font);line-height:1;}
-.sh-sub{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:4px 0 14px;}
+.sh-name{font-size:46px;font-weight:700;color:var(--accent);font-family:var(--font);line-height:1;}
+.sh-sub{font-family:var(--mono);font-size:11px;color:var(--muted);margin:4px 0 14px;}
 .sh-close{position:absolute;top:20px;right:20px;background:var(--surface2);border:none;color:var(--muted);width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer;}
-
-/* Edit sheet */
 #edit-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:400;}
 #edit-overlay.open{display:block;}
 #edit-sheet{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:2px solid var(--cyan);border-radius:20px 20px 0 0;padding:20px 20px 40px;z-index:401;transform:translateY(100%);transition:transform 0.3s ease;max-height:88vh;overflow-y:auto;}
@@ -88,7 +78,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 <div id="lock">
   <div style="font-size:40px">🔐</div>
   <div class="lock-logo">HÅNDSLAG</div>
-  <div style="font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center" id="lock-msg">Verificando acceso...</div>
+  <div style="font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;line-height:1.8" id="lock-msg">Verificando acceso...</div>
   <button style="display:none;font-family:var(--mono);font-size:11px;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 20px;border-radius:8px;cursor:pointer" id="lock-back" onclick="goBack()">← Volver</button>
 </div>
 <div id="app">
@@ -105,8 +95,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   </div>
   <div id="wrap"><div id="canvas-outer"><div id="canvas"></div></div></div>
 </div>
-
-<!-- INFO SHEET -->
 <div id="info-overlay" onclick="closeInfo()"></div>
 <div id="info-sheet">
   <button class="sh-close" onclick="closeInfo()">✕</button>
@@ -115,8 +103,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   <div class="sh-sub" id="info-sub"></div>
   <div style="margin-top:14px;font-family:var(--mono);font-size:12px;color:var(--text);line-height:2" id="info-guests"></div>
 </div>
-
-<!-- EDIT SHEET -->
 <div id="edit-overlay" onclick="closeEdit()"></div>
 <div id="edit-sheet">
   <div class="sh-handle"></div>
@@ -134,66 +120,66 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   <span class="es-lbl">Tamaño</span>
   <div class="sz-row">
     <button class="sz-btn" onclick="changeSize(-10)">−</button>
-    <span id="sz-val">80px</span>
+    <span id="sz-val">70px</span>
     <button class="sz-btn" onclick="changeSize(+10)">+</button>
   </div>
   <button class="btn-done" onclick="closeEdit()">✓ Guardar</button>
   <button class="btn-del" onclick="deleteSel()">🗑 Eliminar mesa</button>
 </div>
-
 <button id="add-btn" onclick="addTable()">+</button>
 <div id="toast"></div>
-
 <script>
 const FB_CFG={apiKey:"AIzaSyC4c-4MXb9lrVMiHWn_0tE6PKIOU_lScRs",authDomain:"handslag-fdd42.firebaseapp.com",databaseURL:"https://handslag-fdd42-default-rtdb.europe-west1.firebasedatabase.app",projectId:"handslag-fdd42",storageBucket:"handslag-fdd42.appspot.com",messagingSenderId:"1090291987706",appId:"1:1090291987706:web:0effe68dc7e7faa1ef06cd"};
 firebase.initializeApp(FB_CFG);
 const db=firebase.database();
 
-// Canvas dimensions
-const CW=800, CH=560;
-
+const CW=900,CH=520;
 const PALETTE=['#b44fff','#06c8e8','#2ecc71','#3498db','#e74c3c','#e67e22','#f1c40f','#e91e8c','#795548','#37474f','#607d8b','#1abc9c'];
 
-// Venue zones
+// Venue zones matching the floor plan image
 const ZONES=[
-  {x:175,y:0,w:625,h:112,color:'rgba(96,125,139,0.18)',label:'KAFFE',lx:185,ly:6,lcolor:'rgba(150,200,220,0.5)'},
-  {x:155,y:115,w:355,h:295,color:'rgba(255,255,255,0.03)',label:'MAIN BAR',lx:160,ly:120,lcolor:'rgba(255,255,255,0.2)'},
-  {x:295,y:248,w:175,h:140,color:'rgba(255,255,255,0.04)',label:'BACK BAR',lx:300,ly:253,lcolor:'rgba(255,255,255,0.25)'},
-  {x:612,y:115,w:165,h:310,color:'rgba(180,79,255,0.08)',label:'',lx:0,ly:0,lcolor:''},
-  {x:10,y:418,w:165,h:130,color:'rgba(180,79,255,0.12)',label:'DANCEFLOOR',lx:15,ly:423,lcolor:'rgba(180,79,255,0.6)'},
+  // Top zone (tables 16,13,18,19)
+  {x:0,y:0,w:900,h:112,color:'rgba(6,200,232,0.1)',stroke:'rgba(6,200,232,0.25)'},
+  // Left Kaffe zone (tables 23, 1S)
+  {x:0,y:110,w:148,h:400,color:'rgba(150,100,50,0.1)',stroke:'rgba(180,130,80,0.2)'},
+  // Right column zone (tables 11,12,14,15)
+  {x:762,y:110,w:138,h:400,color:'rgba(100,80,200,0.08)',stroke:'rgba(120,100,220,0.15)'},
+  // Dancefloor zone (tables 9,10)
+  {x:555,y:368,w:205,h:148,color:'rgba(180,79,255,0.15)',stroke:'rgba(180,79,255,0.35)'},
 ];
 
-// Default venue layout (matches the hand-drawn plan)
+const ZONE_LABELS=[
+  {text:'KAFFE',x:8,y:116,color:'rgba(200,160,100,0.6)'},
+  {text:'DANCEFLOOR',x:560,y:374,color:'rgba(180,79,255,0.7)'},
+];
+
+// Default tables matching the floor plan image
 const DEFAULT_TABLES=[
-  // KAFFE zone (top)
-  {id:3, name:'3',sub:'Kaffe',x:232,y:20,color:'#607d8b',shape:'square',size:72},
-  {id:2, name:'2',sub:'Kaffe',x:382,y:20,color:'#607d8b',shape:'square',size:72},
-  {id:1, name:'1',sub:'Kaffe',x:532,y:20,color:'#607d8b',shape:'square',size:72},
-  // Left column (4-8)
-  {id:4, name:'4',sub:'',x:20,y:118,color:'#3498db',shape:'square',size:68},
-  {id:5, name:'5',sub:'',x:20,y:198,color:'#3498db',shape:'square',size:68},
-  {id:6, name:'6',sub:'',x:20,y:278,color:'#3498db',shape:'square',size:68},
-  {id:7, name:'7',sub:'',x:20,y:348,color:'#3498db',shape:'square',size:68},
-  {id:8, name:'8',sub:'',x:20,y:420,color:'#3498db',shape:'square',size:68},
-  // Right column in box (16-19)
-  {id:16,name:'16',sub:'',x:622,y:118,color:'#b44fff',shape:'round',size:70},
-  {id:17,name:'17',sub:'',x:622,y:198,color:'#b44fff',shape:'round',size:70},
-  {id:18,name:'18',sub:'',x:622,y:278,color:'#b44fff',shape:'round',size:70},
-  {id:19,name:'19',sub:'',x:622,y:358,color:'#b44fff',shape:'round',size:70},
-  // Dancefloor area
-  {id:9, name:'9',sub:'Dancefloor',x:22,y:470,color:'#e91e8c',shape:'square',size:65},
-  // Bottom row
-  {id:10,name:'10',sub:'',x:200,y:462,color:'#2ecc71',shape:'square',size:68},
-  {id:11,name:'11',sub:'',x:308,y:462,color:'#2ecc71',shape:'round',size:65},
-  {id:12,name:'12',sub:'',x:388,y:462,color:'#2ecc71',shape:'round',size:65},
-  {id:13,name:'13',sub:'',x:468,y:462,color:'#2ecc71',shape:'round',size:65},
-  {id:14,name:'14',sub:'',x:560,y:462,color:'#2ecc71',shape:'round',size:65},
-  {id:15,name:'15',sub:'',x:640,y:462,color:'#2ecc71',shape:'round',size:65},
+  // Top row - round, teal zone
+  {id:16,name:'16',sub:'',x:42,y:18,color:'#607d8b',shape:'round',size:76},
+  {id:13,name:'13',sub:'',x:208,y:18,color:'#607d8b',shape:'round',size:76},
+  {id:18,name:'18',sub:'',x:385,y:18,color:'#607d8b',shape:'round',size:76},
+  {id:19,name:'19',sub:'',x:558,y:18,color:'#607d8b',shape:'round',size:76},
+  // Left Kaffe zone
+  {id:23,name:'23',sub:'Kaffe',x:28,y:180,color:'#795548',shape:'round',size:74},
+  {id:100,name:'1S',sub:'Kaffe',x:28,y:325,color:'#795548',shape:'round',size:74},
+  // Right column - square
+  {id:11,name:'11',sub:'',x:772,y:118,color:'#37474f',shape:'square',size:68},
+  {id:12,name:'12',sub:'',x:772,y:208,color:'#37474f',shape:'square',size:68},
+  {id:14,name:'14',sub:'',x:772,y:298,color:'#37474f',shape:'square',size:68},
+  {id:15,name:'15',sub:'',x:772,y:388,color:'#37474f',shape:'square',size:68},
+  // Center bottom row - square
+  {id:4,name:'4',sub:'',x:182,y:398,color:'#3498db',shape:'square',size:68},
+  {id:3,name:'3',sub:'',x:272,y:398,color:'#3498db',shape:'square',size:68},
+  {id:5,name:'5',sub:'',x:362,y:398,color:'#3498db',shape:'square',size:68},
+  {id:8,name:'8',sub:'',x:452,y:398,color:'#3498db',shape:'square',size:68},
+  // Dancefloor - round, purple
+  {id:9,name:'9',sub:'Dancefloor',x:566,y:392,color:'#b44fff',shape:'round',size:74},
+  {id:10,name:'10',sub:'Dancefloor',x:652,y:392,color:'#b44fff',shape:'round',size:74},
 ];
 
-let tables=[], selected=null, mode='view', isAdmin=false, canvasScale=1, nextId=100;
+let tables=[],selected=null,mode='view',isAdmin=false,canvasScale=1,nextId=200;
 
-// AUTH
 function checkAuth(){
   let user=null;
   try{user=JSON.parse(sessionStorage.getItem('hs_currentUser'));}catch(e){}
@@ -218,7 +204,6 @@ function denyAccess(){
 }
 function goBack(){window.location.href=window.location.href.replace(/mapa\.html.*$/,'')+'index.html';}
 
-// INIT
 function initMap(){
   fitCanvas();
   window.addEventListener('resize',fitCanvas);
@@ -226,8 +211,14 @@ function initMap(){
   db.ref('.info/connected').on('value',s=>{document.getElementById('sync-dot').className=s.val()?'':'off';});
   db.ref('mapa_v2/main/tables').on('value',snap=>{
     const raw=snap.val();
-    if(raw){tables=(Array.isArray(raw)?raw:Object.values(raw)).filter(Boolean);nextId=Math.max(nextId,...tables.map(t=>t.id||0))+1;}
-    else{tables=DEFAULT_TABLES.map(t=>({...t}));saveTables();}
+    if(raw){
+      const arr=Array.isArray(raw)?raw:Object.values(raw);
+      tables=arr.filter(Boolean);
+      nextId=Math.max(nextId,...tables.map(t=>t.id||0))+1;
+    } else {
+      tables=DEFAULT_TABLES.map(t=>({...t}));
+      saveTables();
+    }
     render();
   });
 }
@@ -235,93 +226,89 @@ function saveTables(){db.ref('mapa_v2/main/tables').set(tables.map(t=>({...t})))
 
 function fitCanvas(){
   const wrap=document.getElementById('wrap');
-  const s=Math.min((wrap.clientWidth-20)/CW,(wrap.clientHeight-20)/CH,1);
+  const s=Math.min((wrap.clientWidth-16)/CW,(wrap.clientHeight-16)/CH,1);
   canvasScale=s;
   const o=document.getElementById('canvas-outer');
-  o.style.transform=`scale(${s})`;
-  o.style.width=CW+'px'; o.style.height=CH+'px';
+  o.style.transform='scale('+s+')';
+  o.style.width=CW+'px';o.style.height=CH+'px';
   document.getElementById('canvas').style.width=CW+'px';
   document.getElementById('canvas').style.height=CH+'px';
 }
 
-// RENDER
 function render(){
   const canvas=document.getElementById('canvas');
   canvas.innerHTML='';
 
-  // Zones
+  // Draw background zones
   ZONES.forEach(z=>{
     const d=document.createElement('div');
-    d.className='zone-bg';
-    d.style.cssText=`left:${z.x}px;top:${z.y}px;width:${z.w}px;height:${z.h}px;background:${z.color};border:1px solid rgba(255,255,255,0.07);`;
-    canvas.appendChild(d);
-    if(z.label){
-      const l=document.createElement('div');
-      l.className='zone-label';
-      l.style.cssText=`left:${z.lx}px;top:${z.ly}px;color:${z.lcolor};`;
-      l.textContent=z.label;
-      canvas.appendChild(l);
-    }
-  });
-
-  // Bar shapes
-  [{x:157,y:117,w:351,h:126,color:'rgba(255,255,255,0.05)',label:'MAIN BAR'},
-   {x:297,y:250,w:171,h:136,color:'rgba(255,255,255,0.07)',label:'BACK BAR'},
-  ].forEach(b=>{
-    const d=document.createElement('div');
-    d.className='bar-shape';
-    d.style.cssText=`left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px;background:${b.color};border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.3);`;
-    d.textContent=b.label;
+    d.className='zone';
+    d.style.cssText='left:'+z.x+'px;top:'+z.y+'px;width:'+z.w+'px;height:'+z.h+'px;background:'+z.color+';border:1px solid '+z.stroke+';';
     canvas.appendChild(d);
   });
 
-  // Entrance marker (top-left)
-  const ent=document.createElement('div');
-  ent.className='door-marker';
-  ent.style.cssText='left:6px;top:6px;flex-direction:column;gap:2px;';
-  ent.innerHTML='<span style="font-size:14px">🚪</span><span>ENTRANCE</span>';
-  canvas.appendChild(ent);
+  // Zone labels
+  ZONE_LABELS.forEach(l=>{
+    const el=document.createElement('div');
+    el.className='zlabel';
+    el.style.cssText='left:'+l.x+'px;top:'+l.y+'px;color:'+l.color+';';
+    el.textContent=l.text;
+    canvas.appendChild(el);
+  });
 
-  // Backyard exit marker (bottom-right)
+  // Back Bar
+  const bb=document.createElement('div');
+  bb.style.cssText='position:absolute;left:255px;top:112px;width:480px;height:95px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;color:rgba(255,255,255,0.25);letter-spacing:1px;text-transform:uppercase;pointer-events:none;';
+  bb.textContent='BACK BAR';
+  canvas.appendChild(bb);
+
+  // Gold bar counter stripe
+  const gb=document.createElement('div');
+  gb.style.cssText='position:absolute;left:255px;top:212px;width:480px;height:12px;background:linear-gradient(90deg,rgba(180,140,50,0.6),rgba(220,180,80,0.8),rgba(180,140,50,0.6));border-radius:3px;pointer-events:none;';
+  canvas.appendChild(gb);
+
+  // Main Bar
+  const mb=document.createElement('div');
+  mb.style.cssText='position:absolute;left:255px;top:228px;width:480px;height:125px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;color:rgba(255,255,255,0.2);letter-spacing:1px;text-transform:uppercase;pointer-events:none;';
+  mb.textContent='MAIN BAR';
+  canvas.appendChild(mb);
+
+  // Backyard label (top-right corner, no cut)
   const bk=document.createElement('div');
-  bk.className='door-marker';
-  bk.style.cssText='right:6px;bottom:6px;flex-direction:column;align-items:flex-end;gap:2px;';
-  bk.innerHTML='<span style="font-size:14px">↗</span><span>BACKYARD</span>';
+  bk.style.cssText='position:absolute;right:8px;top:6px;font-family:var(--mono);font-size:8px;color:rgba(6,200,232,0.5);letter-spacing:1px;text-transform:uppercase;pointer-events:none;text-align:right;';
+  bk.textContent='↗ BACKYARD';
   canvas.appendChild(bk);
 
-  // DJ booth decoration (bottom center)
-  const dj=document.createElement('div');
-  dj.style.cssText='position:absolute;left:152px;bottom:8px;width:42px;height:42px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;pointer-events:none;';
-  dj.textContent='🎧';
-  canvas.appendChild(dj);
+  // Entrance label (top-left)
+  const en=document.createElement('div');
+  en.style.cssText='position:absolute;left:8px;top:6px;font-family:var(--mono);font-size:8px;color:rgba(255,255,255,0.3);letter-spacing:1px;text-transform:uppercase;pointer-events:none;';
+  en.textContent='ENTRANCE';
+  canvas.appendChild(en);
 
-  // Move hint grid in edit mode
+  // Edit mode grid hint
   if(mode==='edit'&&selected){
     const g=document.createElement('div');
-    g.style.cssText=`position:absolute;inset:0;background-image:radial-gradient(circle,rgba(6,200,232,0.15) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;border-radius:12px;`;
+    g.style.cssText='position:absolute;inset:0;background-image:radial-gradient(circle,rgba(6,200,232,0.12) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;border-radius:14px;';
     canvas.appendChild(g);
   }
 
   // Tables
   tables.forEach(t=>{
+    const sz=t.size||70,fs=sz>70?16:13;
     const el=document.createElement('div');
-    const sz=t.size||70;
-    const fs=sz>70?16:13;
     el.className='tbl '+(t.shape||'round')+(selected===t?' selected':'');
-    el.style.cssText=`left:${t.x}px;top:${t.y}px;width:${sz}px;height:${sz}px;background:${t.color};`;
-    el.innerHTML=`<span class="tbl-num" style="font-size:${fs}px">${t.name}</span>${t.sub?`<span class="tbl-sub" style="font-size:${sz>70?9:7}px">${t.sub}</span>`:''}`;
-    el.addEventListener('click',e=>{e.stopPropagation();onTableClick(t);});
+    el.style.cssText='left:'+t.x+'px;top:'+t.y+'px;width:'+sz+'px;height:'+sz+'px;background:'+t.color+';';
+    el.innerHTML='<span class="tbl-num" style="font-size:'+fs+'px">'+t.name+'</span>'+(t.sub?'<span class="tbl-sub" style="font-size:'+(sz>70?9:7)+'px">'+t.sub+'</span>':'');
+    el.addEventListener('click',function(e){e.stopPropagation();onTableClick(t);});
     canvas.appendChild(el);
   });
 }
 
-// Tap on canvas background in edit mode → move selected table
 document.getElementById('canvas').addEventListener('click',function(e){
   if(mode!=='edit'||!selected)return;
   const r=this.getBoundingClientRect();
   const px=(e.clientX-r.left)/canvasScale;
   const py=(e.clientY-r.top)/canvasScale;
-  // Snap to 40px grid
   const sx=Math.round((px-selected.size/2)/40)*40;
   const sy=Math.round((py-selected.size/2)/40)*40;
   selected.x=Math.max(0,Math.min(CW-selected.size,sx));
@@ -335,7 +322,7 @@ document.getElementById('canvas').addEventListener('click',function(e){
 function onTableClick(t){
   if(mode==='view'){openInfo(t);return;}
   if(selected===t){openEdit(t);}
-  else{selected=t;document.getElementById('hint').textContent='Toca una celda del canvas para moverla, o tócala de nuevo para editar';render();}
+  else{selected=t;document.getElementById('hint').textContent='Toca el canvas para moverla, o de nuevo para editar';render();}
 }
 
 function setMode(m){
@@ -348,7 +335,6 @@ function setMode(m){
   render();
 }
 
-// INFO SHEET
 function openInfo(t){
   document.getElementById('info-name').textContent=t.name;
   document.getElementById('info-sub').textContent=t.sub||'';
@@ -357,29 +343,35 @@ function openInfo(t){
   const today=new Date().toISOString().slice(0,10);
   db.ref('events/'+today).once('value',snap=>{
     const all=snap.val()||{};const guests=[];
-    Object.values(all).forEach(cat=>{(Array.isArray(cat)?cat:Object.values(cat)).forEach(g=>{
-      if(g&&g.table&&String(g.table).toLowerCase()===String(t.name).toLowerCase())
-        guests.push((g.checkedIn?'✓ ':'○ ')+g.name);
-    });});
+    Object.values(all).forEach(cat=>{
+      const list=Array.isArray(cat)?cat:Object.values(cat);
+      list.forEach(g=>{
+        if(g&&g.table&&String(g.table).toLowerCase()===String(t.name).toLowerCase())
+          guests.push((g.checkedIn?'✓ ':'○ ')+g.name);
+      });
+    });
     el.textContent=guests.length?guests.join('\n'):'Sin invitados asignados';
   });
   document.getElementById('info-overlay').classList.add('open');
   document.getElementById('info-sheet').classList.add('open');
 }
-function closeInfo(){document.getElementById('info-overlay').classList.remove('open');document.getElementById('info-sheet').classList.remove('open');}
+function closeInfo(){
+  document.getElementById('info-overlay').classList.remove('open');
+  document.getElementById('info-sheet').classList.remove('open');
+}
 
-// EDIT SHEET
 function buildEditColors(){
   const row=document.getElementById('es-colors');row.innerHTML='';
   PALETTE.forEach(hex=>{
     const c=document.createElement('div');c.className='cc';c.style.background=hex;c.dataset.color=hex;
-    c.addEventListener('click',()=>{if(!selected)return;selected.color=hex;syncCC(hex);saveTables();render();});
+    c.addEventListener('click',function(){if(!selected)return;selected.color=hex;syncCC(hex);saveTables();render();});
     row.appendChild(c);
   });
 }
 function syncCC(color){document.querySelectorAll('.cc').forEach(c=>c.classList.toggle('on',c.dataset.color===color));}
 function setShape(s){if(!selected)return;selected.shape=s;document.getElementById('sopt-round').className='sopt'+(s==='round'?' on':'');document.getElementById('sopt-square').className='sopt'+(s==='square'?' on':'');saveTables();render();}
 function changeSize(d){if(!selected)return;selected.size=Math.max(50,Math.min(130,(selected.size||70)+d));document.getElementById('sz-val').textContent=selected.size+'px';saveTables();render();}
+
 function openEdit(t){
   selected=t;
   document.getElementById('es-name').value=t.name;
@@ -390,7 +382,7 @@ function openEdit(t){
   document.getElementById('sopt-square').className='sopt'+(t.shape==='square'?' on':'');
   document.getElementById('edit-overlay').classList.add('open');
   document.getElementById('edit-sheet').classList.add('open');
-  setTimeout(()=>document.getElementById('es-name').select(),250);
+  setTimeout(function(){document.getElementById('es-name').select();},250);
 }
 function closeEdit(){
   if(selected){selected.name=document.getElementById('es-name').value||selected.name;selected.sub=document.getElementById('es-sub').value;saveTables();}
@@ -399,21 +391,19 @@ function closeEdit(){
   selected=null;render();
 }
 document.getElementById('edit-overlay').addEventListener('click',closeEdit);
+
 function deleteSel(){
   if(!selected)return;
   if(!confirm('¿Eliminar "'+selected.name+'"?'))return;
-  tables=tables.filter(t=>t!==selected);selected=null;saveTables();render();
+  tables=tables.filter(function(t){return t!==selected;});selected=null;saveTables();render();
   document.getElementById('edit-overlay').classList.remove('open');
   document.getElementById('edit-sheet').classList.remove('open');
 }
-
-// ADD TABLE
 function addTable(){
-  const t={id:nextId++,name:String(tables.length+1),sub:'',x:Math.round(Math.random()*600+80),y:Math.round(Math.random()*400+60),color:'#b44fff',shape:'round',size:70};
-  tables.push(t);saveTables();render();openEdit(t);toast('Mesa añadida ✓');
+  const t={id:nextId++,name:String(tables.length+1),sub:'',x:300,y:240,color:'#b44fff',shape:'round',size:70};
+  tables.push(t);saveTables();render();openEdit(t);
 }
-
-function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2200);}
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(function(){el.classList.remove('show');},2200);}
 
 checkAuth();
 </script>
