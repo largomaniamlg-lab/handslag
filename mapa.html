@@ -3,1046 +3,626 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Håndslag — Mapa del Local</title>
+<title>Håndslag — Mapa</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{
-  --green:#b44fff;--green-dark:#9333ea;--cyan:#06c8e8;
-  --black:#06061a;--surface:#0e0c24;--surface2:#14122e;--surface3:#1e1a3a;
-  --border:rgba(255,255,255,0.1);--text:#f0f0f0;--text-muted:#888;
-  --font-d:'Barlow Condensed',sans-serif;--font-m:'Space Mono',monospace;
-  --danger:#e05252;
+  --bg:#06061a; --surface:#0e0c24; --surface2:#14122e; --surface3:#1e1a3a;
+  --accent:#b44fff; --cyan:#06c8e8; --border:rgba(255,255,255,0.1);
+  --text:#f0f0f0; --muted:#888; --danger:#e05252;
+  --font:'Barlow Condensed',sans-serif; --mono:'Space Mono',monospace;
 }
-html,body{height:100%;background:var(--black);color:var(--text);font-family:var(--font-d);overflow:hidden;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden;}
 
-/* ── LOCK SCREEN ── */
-#lockScreen{position:fixed;inset:0;background:var(--black);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;}
-#lockScreen .lock-logo{font-family:var(--font-d);font-size:28px;font-weight:700;letter-spacing:2px;color:var(--green);}
-#lockScreen .lock-msg{font-family:var(--font-m);font-size:11px;color:var(--text-muted);text-align:center;line-height:1.8;}
-#lockScreen .lock-icon{font-size:40px;margin-bottom:8px;}
+/* ── LOCK ── */
+#lock{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+.lock-logo{font-size:28px;font-weight:700;letter-spacing:2px;background:linear-gradient(135deg,#b44fff,#06c8e8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.lock-msg{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;line-height:1.8;}
+
+/* ── APP ── */
+#app{display:none;flex-direction:column;height:100vh;}
 
 /* ── HEADER ── */
-#header{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface);border-bottom:1px solid var(--border);height:52px;flex-shrink:0;}
-.logo{font-size:18px;font-weight:700;letter-spacing:1px;background:linear-gradient(135deg,#b44fff,#06c8e8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-transform:uppercase;font-family:var(--font-d);filter:drop-shadow(0 0 6px rgba(180,79,255,0.5));}
-.page-title{font-size:13px;color:var(--text-muted);font-family:var(--font-m);}
+#hdr{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface);border-bottom:1px solid var(--border);height:52px;flex-shrink:0;}
+.logo{font-size:18px;font-weight:700;letter-spacing:1px;background:linear-gradient(135deg,#b44fff,#06c8e8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-family:var(--font);}
 .spacer{flex:1;}
-.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;}
-.sync-dot.off{background:var(--text-muted);animation:none;}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
-#admin-badge{font-family:var(--font-m);font-size:9px;background:rgba(180,79,255,0.15);border:1px solid rgba(180,79,255,0.3);color:var(--green);padding:3px 8px;border-radius:20px;display:none;}
+#sync-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+#sync-dot.off{background:var(--muted);}
+.hbtn{background:none;border:none;color:var(--muted);font-family:var(--mono);font-size:10px;cursor:pointer;padding:4px 8px;}
+.hbtn:hover{color:var(--text);}
 
-/* ── TOOLBAR ── */
-#toolbar{display:flex;gap:6px;padding:8px 12px;background:var(--surface);border-bottom:1px solid var(--border);flex-wrap:wrap;align-items:center;flex-shrink:0;}
-.tb-btn{display:flex;align-items:center;gap:5px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-family:var(--font-m);font-size:10px;cursor:pointer;white-space:nowrap;transition:background 0.15s,border-color 0.15s;}
-.tb-btn:hover{background:var(--surface3);border-color:rgba(255,255,255,0.2);}
-.tb-btn.active{background:var(--green);color:#000;border-color:var(--green);font-weight:700;}
-.tb-btn.primary{background:var(--green);color:#000;border-color:var(--green);font-weight:700;}
-.tb-btn.primary:hover{background:var(--green-dark);}
-.tb-btn.danger{border-color:rgba(224,82,82,0.4);color:var(--danger);}
-.tb-btn.danger:hover{background:rgba(224,82,82,0.15);}
-.tb-btn:disabled{opacity:0.3;cursor:not-allowed;}
-.tb-sep{width:1px;height:24px;background:var(--border);margin:0 2px;}
-#layout-select{font-family:var(--font-m);font-size:10px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);max-width:110px;}
+/* ── MODE BAR ── */
+#modebar{display:flex;padding:8px 12px;gap:8px;background:var(--surface2);border-bottom:1px solid var(--border);align-items:center;flex-shrink:0;}
+.mbtn{flex:1;padding:10px 6px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--muted);font-family:var(--mono);font-size:11px;cursor:pointer;text-align:center;touch-action:manipulation;}
+.mbtn.active{background:rgba(180,79,255,0.2);border-color:var(--accent);color:var(--accent);font-weight:700;}
+.mbtn.active-edit{background:rgba(6,200,232,0.15);border-color:var(--cyan);color:var(--cyan);font-weight:700;}
+#hint{font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center;flex:2;}
 
-/* ── MAIN ── */
-#main{display:flex;flex:1;overflow:hidden;height:calc(100vh - 52px - 56px);}
-#canvas-wrap{flex:1;overflow:auto;background:var(--black);padding:12px;}
-#canvas-outer{transform-origin:top left;display:inline-block;}
+/* ── CANVAS WRAP ── */
+#wrap{flex:1;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:12px;}
+#canvas-outer{transform-origin:center center;position:relative;}
+#canvas{position:relative;background:#0d0b22;border-radius:14px;border:1px solid var(--border);overflow:hidden;cursor:pointer;}
 
-/* ── CANVAS ── */
-#canvas{position:relative;background:#0d0b22;border:1px solid var(--border);border-radius:12px;overflow:hidden;flex-shrink:0;}
-
-/* ── ZONES / BARS ── */
-.zone{position:absolute;border-radius:12px;pointer-events:none;}
-.zone-label{position:absolute;font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.3);pointer-events:none;}
-.bar-el{position:absolute;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--font-m);font-size:9px;color:rgba(255,255,255,0.4);letter-spacing:0.5px;pointer-events:none;}
+/* ── GRID CELLS (edit mode) ── */
+.gcell{position:absolute;border:1px dashed rgba(255,255,255,0.06);border-radius:6px;transition:background 0.15s;}
+.gcell.highlight{background:rgba(6,200,232,0.12);border-color:rgba(6,200,232,0.4);}
 
 /* ── TABLES ── */
-.table-el{position:absolute;cursor:default;user-select:none;display:flex;align-items:center;justify-content:center;flex-direction:column;touch-action:none;}
-.table-el.draggable{cursor:grab;}
-.table-el.draggable:active{cursor:grabbing;}
-.table-el.round{border-radius:50%;}
-.table-el.square{border-radius:8px;}
-.table-el.selected{outline:2px solid var(--green);outline-offset:3px;}
-.table-num{font-family:var(--font-m);font-size:13px;font-weight:700;color:#fff;line-height:1;text-shadow:0 1px 3px rgba(0,0,0,0.5);}
-.table-tag{font-family:var(--font-m);font-size:7px;color:rgba(255,255,255,0.7);margin-top:2px;letter-spacing:0.5px;text-transform:uppercase;}
-.table-guests{font-family:var(--font-m);font-size:8px;color:rgba(255,255,255,0.85);margin-top:2px;}
+.tbl{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:transform 0.15s,box-shadow 0.15s;touch-action:manipulation;user-select:none;-webkit-tap-highlight-color:transparent;}
+.tbl.round{border-radius:50%;}
+.tbl.square{border-radius:10px;}
+.tbl.selected{box-shadow:0 0 0 3px #fff,0 0 20px rgba(255,255,255,0.3);transform:scale(1.08);}
+.tbl-num{font-family:var(--mono);font-weight:700;color:#fff;line-height:1;text-shadow:0 1px 4px rgba(0,0,0,0.6);}
+.tbl-sub{font-family:var(--mono);color:rgba(255,255,255,0.7);line-height:1;margin-top:2px;}
 
-/* ── PANEL ── */
-#panel{width:210px;background:var(--surface);border-left:1px solid var(--border);padding:14px;overflow-y:auto;display:none;flex-shrink:0;}
-#panel h4{font-family:var(--font-m);font-size:11px;color:var(--green);text-transform:uppercase;letter-spacing:1px;}
-#panel label{display:block;font-family:var(--font-m);font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:12px;margin-bottom:5px;}
-#panel input[type=text]{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font-m);font-size:11px;padding:6px 8px;}
-#panel input[type=text]:focus{outline:none;border-color:var(--green);}
-#panel input[type=range]{width:100%;accent-color:var(--green);}
-.color-palette{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;}
-.color-chip{width:100%;aspect-ratio:1;border-radius:6px;cursor:pointer;border:2px solid transparent;transition:transform 0.1s,border-color 0.1s;}
-.color-chip:hover{transform:scale(1.12);}
-.color-chip.selected{border-color:#fff;transform:scale(1.1);}
-.shape-row{display:flex;gap:6px;}
-.shape-opt{flex:1;padding:7px 4px;border:1px solid var(--border);border-radius:6px;font-family:var(--font-m);font-size:9px;text-align:center;cursor:pointer;color:var(--text-muted);background:var(--surface2);transition:all 0.15s;}
-.shape-opt:hover{border-color:rgba(255,255,255,0.25);}
-.shape-opt.active{border-color:var(--green);color:var(--green);background:rgba(180,79,255,0.1);}
-#panel .close-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
-#panel .close-btn{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;padding:0;}
-#panel .del-btn{width:100%;margin-top:14px;padding:8px;font-family:var(--font-m);font-size:10px;border:1px solid rgba(224,82,82,0.4);border-radius:6px;color:var(--danger);background:transparent;cursor:pointer;transition:background 0.15s;}
-#panel .del-btn:hover{background:rgba(224,82,82,0.15);}
-#p-guests-wrap{display:none;}
+/* ── INFO SHEET (view mode tap) ── */
+#info-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:300;}
+#info-overlay.open{display:block;}
+#info-sheet{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:2px solid var(--accent);border-radius:20px 20px 0 0;padding:20px 20px 36px;z-index:301;transform:translateY(100%);transition:transform 0.3s ease;}
+#info-sheet.open{transform:translateY(0);}
+.sh-handle{width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px;}
+.sh-table-name{font-size:42px;font-weight:700;color:var(--accent);font-family:var(--font);line-height:1;}
+.sh-sub{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:4px;margin-bottom:16px;}
+.sh-close{position:absolute;top:20px;right:20px;background:var(--surface2);border:none;color:var(--muted);width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
 
-/* ── MODALS ── */
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:300;align-items:center;justify-content:center;}
-.modal-overlay.open{display:flex;}
-.modal-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;width:300px;max-height:80vh;overflow-y:auto;}
-.modal-box h3{font-family:var(--font-m);font-size:12px;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin-bottom:16px;}
-.layout-item{display:flex;align-items:center;justify-content:space-between;padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;transition:background 0.15s;}
-.layout-item:hover{background:var(--surface2);}
-.layout-item.current{border-color:var(--green);}
-.layout-item-name{font-family:var(--font-m);font-size:11px;color:var(--text);flex:1;}
-.layout-item-meta{font-family:var(--font-m);font-size:9px;color:var(--text-muted);margin-top:2px;}
-.layout-item-btns{display:flex;gap:6px;}
-.modal-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font-m);font-size:11px;padding:8px 10px;margin-bottom:10px;}
-.modal-input:focus{outline:none;border-color:var(--green);}
-.modal-close{width:100%;margin-top:12px;padding:8px;font-family:var(--font-m);font-size:10px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text-muted);cursor:pointer;}
-.modal-close:hover{background:var(--surface2);}
-.modal-confirm-btn{width:100%;padding:9px;font-family:var(--font-m);font-size:10px;border:none;border-radius:6px;background:var(--green);color:#000;font-weight:700;cursor:pointer;margin-bottom:6px;}
-.modal-confirm-btn:hover{background:var(--green-dark);}
+/* ── EDIT SHEET ── */
+#edit-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:400;}
+#edit-overlay.open{display:block;}
+#edit-sheet{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:2px solid var(--cyan);border-radius:20px 20px 0 0;padding:20px 20px 36px;z-index:401;transform:translateY(100%);transition:transform 0.3s ease;max-height:90vh;overflow-y:auto;}
+#edit-sheet.open{transform:translateY(0);}
+.es-label{font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;display:block;margin-top:14px;}
+.es-input{width:100%;background:var(--surface2);border:2px solid var(--border);border-radius:12px;color:var(--text);font-family:var(--mono);font-size:22px;padding:14px 16px;outline:none;-webkit-tap-highlight-color:transparent;}
+.es-input:focus{border-color:var(--cyan);}
+.color-row{display:flex;gap:8px;flex-wrap:wrap;}
+.cc{width:44px;height:44px;border-radius:10px;border:3px solid transparent;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+.cc.on{border-color:#fff;transform:scale(1.15);}
+.shape-row{display:flex;gap:8px;}
+.sopt{flex:1;padding:13px 6px;border:2px solid var(--border);border-radius:12px;font-family:var(--mono);font-size:12px;text-align:center;cursor:pointer;color:var(--muted);background:var(--surface2);touch-action:manipulation;}
+.sopt.on{border-color:var(--cyan);color:var(--cyan);background:rgba(6,200,232,0.1);}
+.size-row{display:flex;align-items:center;gap:12px;}
+.sz-btn{width:52px;height:52px;background:var(--surface2);border:2px solid var(--border);border-radius:12px;color:var(--text);font-size:26px;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:manipulation;}
+#sz-val{flex:1;text-align:center;font-family:var(--mono);font-size:16px;color:var(--text);}
+.btn-done{width:100%;padding:16px;background:linear-gradient(135deg,#b44fff,#06c8e8);border:none;border-radius:12px;color:#000;font-family:var(--mono);font-size:13px;font-weight:700;cursor:pointer;margin-top:20px;touch-action:manipulation;}
+.btn-del{width:100%;padding:14px;background:transparent;border:2px solid rgba(224,82,82,0.4);border-radius:12px;color:var(--danger);font-family:var(--mono);font-size:12px;cursor:pointer;margin-top:8px;touch-action:manipulation;}
 
-/* ── CANVAS SELECTOR ── */
-#canvas-tab-bar{display:flex;gap:6px;padding:6px 12px;background:var(--surface2);border-bottom:1px solid var(--border);flex-wrap:wrap;align-items:center;flex-shrink:0;overflow-x:auto;}
-.canvas-tab{font-family:var(--font-m);font-size:10px;padding:5px 12px;border:1px solid var(--border);border-radius:20px;cursor:pointer;color:var(--text-muted);background:transparent;white-space:nowrap;transition:all 0.15s;}
-.canvas-tab:hover{border-color:rgba(255,255,255,0.3);color:var(--text);}
-.canvas-tab.active{background:var(--green);color:#000;border-color:var(--green);font-weight:700;}
-.canvas-tab-add{font-family:var(--font-m);font-size:13px;padding:2px 10px;border:1px dashed rgba(180,79,255,0.4);border-radius:20px;cursor:pointer;color:var(--green);background:transparent;}
-.canvas-tab-add:hover{background:rgba(180,79,255,0.1);}
+/* ── ADD BTN (edit mode) ── */
+#add-btn{position:fixed;bottom:28px;right:20px;width:60px;height:60px;background:linear-gradient(135deg,#b44fff,#06c8e8);border:none;border-radius:50%;color:#000;font-size:28px;cursor:pointer;display:none;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(180,79,255,0.4);z-index:100;touch-action:manipulation;}
+#add-btn.show{display:flex;}
+
+/* ── PRESET MODAL ── */
+#preset-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:500;align-items:center;justify-content:center;}
+#preset-modal.open{display:flex;}
+.pm-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;width:90%;max-width:340px;}
+.pm-box h3{font-family:var(--mono);font-size:12px;color:var(--cyan);text-transform:uppercase;letter-spacing:1px;margin-bottom:16px;}
+.pm-item{width:100%;padding:14px 16px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:16px;cursor:pointer;text-align:left;margin-bottom:8px;touch-action:manipulation;}
+.pm-item:hover,.pm-item:active{border-color:var(--cyan);color:var(--cyan);}
+.pm-cancel{width:100%;padding:12px;border:none;background:none;color:var(--muted);font-family:var(--mono);font-size:11px;cursor:pointer;margin-top:4px;}
 
 /* ── TOAST ── */
-#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--green);color:#000;font-family:var(--font-m);font-size:11px;font-weight:700;padding:10px 20px;border-radius:20px;transition:transform 0.3s;z-index:500;pointer-events:none;white-space:nowrap;}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--accent);color:#000;font-family:var(--mono);font-size:11px;font-weight:700;padding:10px 20px;border-radius:20px;transition:transform 0.3s;z-index:600;pointer-events:none;white-space:nowrap;}
 #toast.show{transform:translateX(-50%) translateY(0);}
-
-#back-btn{font-family:var(--font-m);font-size:10px;background:none;border:none;color:var(--text-muted);cursor:pointer;display:flex;align-items:center;gap:4px;}
-#back-btn:hover{color:var(--text);}
-
-@media(max-width:600px){
-  #canvas-wrap{padding:8px;}
-  #panel{width:100%;border-left:none;border-top:1px solid var(--border);max-height:260px;}
-  #main{flex-direction:column;}
-}
-
-
-/* ── D-PAD ── */
-#dpad{position:fixed;bottom:20px;right:16px;display:none;flex-direction:column;align-items:center;gap:4px;z-index:200;}
-#dpad.visible{display:flex;}
-.dp-row{display:flex;gap:4px;}
-.dp-btn{width:52px;height:52px;background:rgba(180,79,255,0.25);border:1px solid rgba(180,79,255,0.5);border-radius:12px;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:manipulation;user-select:none;-webkit-tap-highlight-color:transparent;}
-.dp-btn:active{background:rgba(180,79,255,0.6);}
-.dp-center{width:52px;height:52px;background:rgba(6,200,232,0.2);border:1px solid rgba(6,200,232,0.4);border-radius:50%;color:var(--cyan);font-size:11px;display:flex;align-items:center;justify-content:center;font-family:var(--font-m);cursor:pointer;touch-action:manipulation;user-select:none;}
-.dp-center:active{background:rgba(6,200,232,0.4);}
-
-/* ── BOTTOM SHEET (editor de mesa) ── */
-#sheet-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:400;}
-#sheet-overlay.open{display:block;}
-#edit-sheet{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid rgba(180,79,255,0.4);border-radius:20px 20px 0 0;padding:16px 20px 32px;z-index:401;transform:translateY(100%);transition:transform 0.3s ease;max-height:85vh;overflow-y:auto;}
-#edit-sheet.open{transform:translateY(0);}
-.sheet-handle{width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px;}
-.sheet-title{font-family:var(--font-m);font-size:13px;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin-bottom:16px;}
-.sheet-label{font-family:var(--font-m);font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;display:block;}
-.sheet-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--font-m);font-size:18px;padding:12px 14px;margin-bottom:14px;outline:none;}
-.sheet-input:focus{border-color:var(--green);}
-.sheet-colors{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
-.sc-chip{width:42px;height:42px;border-radius:10px;border:3px solid transparent;cursor:pointer;transition:transform 0.1s,border-color 0.1s;touch-action:manipulation;}
-.sc-chip.selected{border-color:#fff;transform:scale(1.15);}
-.sheet-shapes{display:flex;gap:8px;margin-bottom:16px;}
-.ss-opt{flex:1;padding:12px 6px;border:1px solid var(--border);border-radius:10px;font-family:var(--font-m);font-size:12px;text-align:center;cursor:pointer;color:var(--text-muted);background:var(--surface2);touch-action:manipulation;}
-.ss-opt.active{border-color:var(--green);color:var(--green);background:rgba(180,79,255,0.15);}
-.sheet-size-row{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
-.size-btn{width:44px;height:44px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:manipulation;}
-.size-btn:active{background:var(--surface3);}
-#sheet-size-val{flex:1;text-align:center;font-family:var(--font-m);font-size:14px;color:var(--text);}
-.sheet-del{width:100%;padding:14px;background:transparent;border:1px solid rgba(224,82,82,0.4);border-radius:10px;color:var(--danger);font-family:var(--font-m);font-size:12px;cursor:pointer;margin-top:6px;touch-action:manipulation;}
-.sheet-del:active{background:rgba(224,82,82,0.15);}
-.sheet-done{width:100%;padding:14px;background:var(--green);border:none;border-radius:10px;color:#000;font-family:var(--font-m);font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;touch-action:manipulation;}
-
-/* ── MOVE MODE ── */
-.tb-btn.move-active{background:rgba(6,200,232,0.2);border-color:var(--cyan);color:var(--cyan);}
-
-/* ── SNAP GRID (visual) ── */
-#canvas.snap-grid{background-image:radial-gradient(circle,rgba(255,255,255,0.06) 1px,transparent 1px);background-size:20px 20px;}
-
-/* Non-admin view mode */
-.view-only-mode #toolbar .tb-btn:not(.view-allowed),
-.view-only-mode #toolbar .tb-sep { display: none; }
-.view-only-mode #toolbar::after { content: '👁 VIEW MODE'; font-family: var(--font-m); font-size: 9px; color: var(--green); letter-spacing: 1px; padding: 0 8px; }
 </style>
 </head>
 <body>
 
-<!-- LOCK SCREEN (si no es admin) -->
-<div id="lockScreen">
-  <div class="lock-icon">🔐</div>
+<!-- LOCK -->
+<div id="lock">
+  <div style="font-size:40px">🔐</div>
   <div class="lock-logo">HÅNDSLAG</div>
-  <div class="lock-msg">Verificando acceso...<br><span id="lock-sub" style="color:var(--danger);display:none">Solo administradores pueden acceder al editor de mapas.</span></div>
-  <button class="tb-btn" id="lock-back-btn" style="display:none" onclick="goBack()">← Volver</button>
+  <div class="lock-msg" id="lock-msg">Verificando acceso...<br><span id="lock-sub" style="color:var(--danger);display:none">Abre el mapa desde la app Håndslag.</span></div>
+  <button style="display:none;font-family:var(--mono);font-size:11px;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 20px;border-radius:8px;cursor:pointer" id="lock-back" onclick="goBack()">← Volver</button>
 </div>
 
-<div id="appWrap" style="display:none;flex-direction:column;height:100vh;flex:1;">
-
+<!-- APP -->
+<div id="app">
   <!-- HEADER -->
-  <div id="header">
-    <button id="back-btn" onclick="goBack()">← BACK</button>
+  <div id="hdr">
+    <button class="hbtn" onclick="goBack()">← Volver</button>
     <span class="logo">Håndslag</span>
-    <span class="page-title" id="map-page-title">/ map</span>
     <div class="spacer"></div>
-    <span id="admin-badge">ADMIN</span>
-    <span id="view-mode-badge" style="display:none;font-family:var(--font-m);font-size:9px;color:var(--text-muted)"></span>
-    <div class="sync-dot" id="sync-dot"></div>
+    <button class="hbtn" id="preset-btn" style="display:none" onclick="openPresets()">📐 Presets</button>
+    <div id="sync-dot"></div>
   </div>
 
-  <!-- TABS DE MAPAS -->
-  <div id="canvas-tab-bar"></div>
-
-  <!-- TOOLBAR -->
-  <div id="toolbar">
-    <button class="tb-btn primary" id="btn-add-table" onclick="addTable()">+ Mesa</button>
-    <button class="tb-btn" id="btn-move-mode" onclick="toggleMoveMode()">✋ Mover</button>
-    <div class="tb-sep"></div>
-    <button class="tb-btn" id="btn-design" onclick="setMode('design')">✏️ Design</button>
-    <button class="tb-btn" id="btn-event" onclick="setMode('event')">👥 Event</button>
-    <div class="tb-sep"></div>
-    <select id="layout-select" onchange="loadLayoutByName(this.value)">
-      <option value="">— layouts —</option>
-    </select>
-    <button class="tb-btn" id="btn-save" onclick="saveLayout()">💾 Save</button>
-    <button class="tb-btn" id="btn-all-layouts" onclick="openLayoutsModal()">📋 All</button>
-    <div class="tb-sep"></div>
-    <button class="tb-btn" id="btn-zoom-out" onclick="adjustZoom(-0.1)" title="Zoom out">−</button>
-    <span id="zoom-label" style="font-family:var(--font-m);font-size:10px;color:var(--text-muted);min-width:32px;text-align:center">100%</span>
-    <button class="tb-btn" id="btn-zoom-in" onclick="adjustZoom(0.1)" title="Zoom in">+</button>
-    <button class="tb-btn" id="btn-zoom-fit" onclick="fitCanvas(true)" title="Fit to screen">⊡ Fit</button>
-    <div class="tb-sep"></div>
-    <button class="tb-btn" onclick="showPresetMenu()">📐 Presets</button>
+  <!-- MODE BAR -->
+  <div id="modebar">
+    <button class="mbtn active" id="btn-view" onclick="setMode('view')">👁 Ver</button>
+    <span id="hint">Toca una mesa para ver info</span>
+    <button class="mbtn" id="btn-edit" onclick="setMode('edit')">✏️ Editar</button>
   </div>
 
-  <!-- MAIN -->
-  <div id="main">
-    <div id="canvas-wrap">
-      <div id="canvas-outer"><div id="canvas"></div></div>
-    </div>
-
-    <!-- PANEL EDICIÓN (solo admin) -->
-    <div id="panel">
-      <div class="close-row">
-        <h4 id="panel-title">Edit Table</h4>
-        <button class="close-btn" id="btn-close-panel" onclick="closePanel()">✕</button>
-      </div>
-      <label id="lbl-numname">Number / Name</label>
-      <input type="text" id="p-name" oninput="updateSel('name', this.value)" placeholder="Ej: 5, VIP1..."/>
-      <label id="lbl-zone">Zone</label>
-      <input type="text" id="p-sub" oninput="updateSel('sub', this.value)" placeholder="Ej: Kaffe, Dancefloor..."/>
-      <label id="lbl-color">Color</label>
-      <div class="color-palette" id="color-palette"></div>
-      <label>Forma</label>
-      <div class="shape-row">
-        <div class="shape-opt" id="sh-round" onclick="updateSel('shape','round')">⬤ Redonda</div>
-        <div class="shape-opt" id="sh-square" onclick="updateSel('shape','square')">◼ Cuadrada</div>
-      </div>
-      <label id="lbl-size">Size</label>
-      <input type="range" min="40" max="110" step="1" id="p-size" oninput="updateSel('size', +this.value)"/>
-      <div id="p-guests-wrap">
-        <label id="lbl-guests">Guests</label>
-        <input type="text" id="p-guests" oninput="updateSel('guests', this.value)" placeholder="Separados por coma"/>
-      </div>
-      <button class="del-btn" onclick="deleteSelected()" id="btn-delete-table">🗑 Delete Table</button>
+  <!-- CANVAS -->
+  <div id="wrap">
+    <div id="canvas-outer">
+      <div id="canvas"></div>
     </div>
   </div>
-
-<!-- D-PAD (directional arrows when table selected) -->
-<div id="dpad">
-  <div class="dp-row"><button class="dp-btn" onpointerdown="startNudge(0,-1)" onpointerup="stopNudge()" onpointerleave="stopNudge()">↑</button></div>
-  <div class="dp-row">
-    <button class="dp-btn" onpointerdown="startNudge(-1,0)" onpointerup="stopNudge()" onpointerleave="stopNudge()">←</button>
-    <button class="dp-center" onclick="openEditSheet()">✏️</button>
-    <button class="dp-btn" onpointerdown="startNudge(1,0)" onpointerup="stopNudge()" onpointerleave="stopNudge()">→</button>
-  </div>
-  <div class="dp-row"><button class="dp-btn" onpointerdown="startNudge(0,1)" onpointerup="stopNudge()" onpointerleave="stopNudge()">↓</button></div>
 </div>
 
-<!-- BOTTOM SHEET editor -->
-<div id="sheet-overlay" onclick="closeEditSheet()"></div>
+<!-- INFO SHEET (view mode) -->
+<div id="info-overlay" onclick="closeInfo()"></div>
+<div id="info-sheet">
+  <button class="sh-close" onclick="closeInfo()">✕</button>
+  <div class="sh-handle"></div>
+  <div class="sh-table-name" id="info-name">5</div>
+  <div class="sh-sub" id="info-sub">VIP</div>
+  <div id="info-guests" style="font-family:var(--mono);font-size:12px;color:var(--text);line-height:1.8;"></div>
+</div>
+
+<!-- EDIT SHEET -->
+<div id="edit-overlay" onclick="closeEdit()"></div>
 <div id="edit-sheet">
-  <div class="sheet-handle"></div>
-  <div class="sheet-title" id="sheet-title">Editar mesa</div>
-  <span class="sheet-label">Número / Nombre</span>
-  <input class="sheet-input" id="sh-name" type="text" inputmode="text" placeholder="Ej: 5, VIP..." oninput="updateSel('name',this.value)"/>
-  <span class="sheet-label">Color</span>
-  <div class="sheet-colors" id="sheet-colors"></div>
-  <span class="sheet-label">Forma</span>
-  <div class="sheet-shapes">
-    <div class="ss-opt" id="ss-round" onclick="updateSel('shape','round');syncSheetShape('round')">⬤ Redonda</div>
-    <div class="ss-opt" id="ss-square" onclick="updateSel('shape','square');syncSheetShape('square')">◼ Cuadrada</div>
+  <div class="sh-handle"></div>
+  <span class="es-label">Número / Nombre</span>
+  <input class="es-input" id="es-name" type="text" inputmode="text" placeholder="Ej: 5, VIP1..."/>
+  <span class="es-label">Color</span>
+  <div class="color-row" id="es-colors"></div>
+  <span class="es-label">Forma</span>
+  <div class="shape-row">
+    <div class="sopt" id="sopt-round" onclick="setShape('round')">⬤ Redonda</div>
+    <div class="sopt" id="sopt-square" onclick="setShape('square')">◼ Cuadrada</div>
   </div>
-  <span class="sheet-label">Tamaño</span>
-  <div class="sheet-size-row">
-    <button class="size-btn" onclick="changeSize(-10)">−</button>
-    <span id="sheet-size-val">80px</span>
-    <button class="size-btn" onclick="changeSize(10)">+</button>
+  <span class="es-label">Tamaño</span>
+  <div class="size-row">
+    <button class="sz-btn" onclick="changeSize(-10)">−</button>
+    <span id="sz-val">80px</span>
+    <button class="sz-btn" onclick="changeSize(+10)">+</button>
   </div>
-  <button class="sheet-done" onclick="closeEditSheet()">✓ Listo</button>
-  <button class="sheet-del" onclick="deleteSelectedFromSheet()">🗑 Eliminar mesa</button>
+  <button class="btn-done" onclick="closeEdit()">✓ Guardar</button>
+  <button class="btn-del" onclick="deleteSel()">🗑 Eliminar mesa</button>
 </div>
 
-</div>
+<!-- ADD BTN -->
+<button id="add-btn" onclick="addTable()">+</button>
 
-<!-- MODAL LAYOUTS -->
-<div class="modal-overlay" id="modal-layouts">
-  <div class="modal-box">
-    <h3>Layouts guardados</h3>
-    <div id="layouts-list"></div>
-    <button class="modal-close" onclick="closeModal('modal-layouts')">Cerrar</button>
-  </div>
-</div>
-
-<!-- MODAL NUEVO MAPA -->
-<div class="modal-overlay" id="modal-new-map">
-  <div class="modal-box">
-    <h3>Nuevo mapa</h3>
-    <label style="font-family:var(--font-m);font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Nombre del mapa</label>
-    <input type="text" class="modal-input" id="new-map-name" placeholder="Ej: Sala principal, Terraza..." />
-    <button class="modal-confirm-btn" onclick="confirmNewMap()">Crear mapa</button>
-    <button class="modal-close" onclick="closeModal('modal-new-map')">Cancelar</button>
+<!-- PRESET MODAL -->
+<div id="preset-modal">
+  <div class="pm-box">
+    <h3>Elegir preset</h3>
+    <button class="pm-item" onclick="loadPreset('clasica')">🎉 Discoteca clásica</button>
+    <button class="pm-item" onclick="loadPreset('vip')">👑 Solo VIP</button>
+    <button class="pm-item" onclick="loadPreset('numeradas')">🔢 Mesas numeradas</button>
+    <button class="pm-cancel" onclick="closeModal('preset-modal')">Cancelar</button>
   </div>
 </div>
 
-<!-- MODAL RENOMBRAR MAPA -->
-<div class="modal-overlay" id="modal-rename-map">
-  <div class="modal-box">
-    <h3>Renombrar mapa</h3>
-    <input type="text" class="modal-input" id="rename-map-input" placeholder="Nuevo nombre..." />
-    <button class="modal-confirm-btn" onclick="confirmRenameMap()">Guardar</button>
-    <button class="modal-close" onclick="closeModal('modal-rename-map')">Cancelar</button>
-  </div>
-</div>
-
+<!-- TOAST -->
 <div id="toast"></div>
 
 <script>
-// ─── PALETA 12 COLORES ───
-const PALETTE = ['#b44fff','#2ecc71','#3498db','#9b59b6','#e74c3c','#e67e22','#f1c40f','#1abc9c','#e91e8c','#607d8b','#795548','#37474f'];
-
-// ─── FIREBASE ───
-const FB = {
-  apiKey:"AIzaSyBR0HsO3WM-Db-1QACcrY789oiXaCR8zpA",
+// ══════════════════════════════════════════
+//  FIREBASE
+// ══════════════════════════════════════════
+const FB_CFG = {
+  apiKey:"AIzaSyC4c-4MXb9lrVMiHWn_0tE6PKIOU_lScRs",
   authDomain:"handslag-fdd42.firebaseapp.com",
   databaseURL:"https://handslag-fdd42-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId:"handslag-fdd42",storageBucket:"handslag-fdd42.appspot.com",
-  messagingSenderId:"130817713452",
-  appId:"1:130817713452:web:a1510ff72d0c0f75383889"
+  projectId:"handslag-fdd42",
+  storageBucket:"handslag-fdd42.appspot.com",
+  messagingSenderId:"1090291987706",
+  appId:"1:1090291987706:web:0effe68dc7e7faa1ef06cd"
 };
-firebase.initializeApp(FB);
+firebase.initializeApp(FB_CFG);
 const db = firebase.database();
 
-// ─── ESTADO ───
-let currentUser = null;
-let isAdmin = false;
-let maps = {};           // { mapId: { name, tables: [] } }
-let currentMapId = null;
-let tables = [];
-let selected = null, dragging = null, dragOffX = 0, dragOffY = 0;
-let mode = 'design';
-let layouts = {};
-let currentLayoutName = 'Principal';
-let nextId = 200;
-
-// Mesas por defecto para un mapa nuevo
-const DEFAULT_TABLES = [
-  {id:1, name:'16',sub:'',x:55,  y:20, color:'#5a7a3a',shape:'round', size:65,guests:''},
-  {id:2, name:'13',sub:'',x:195, y:20, color:'#5a7a3a',shape:'round', size:65,guests:''},
-  {id:3, name:'18',sub:'',x:350, y:20, color:'#5a7a3a',shape:'round', size:65,guests:''},
-  {id:4, name:'19',sub:'',x:505, y:20, color:'#5a7a3a',shape:'round', size:65,guests:''},
-  {id:5, name:'11',sub:'',x:630, y:190,color:'#37474f',shape:'square',size:55,guests:''},
-  {id:6, name:'12',sub:'',x:630, y:262,color:'#37474f',shape:'square',size:55,guests:''},
-  {id:7, name:'14',sub:'',x:630, y:335,color:'#37474f',shape:'square',size:55,guests:''},
-  {id:8, name:'15',sub:'',x:630, y:408,color:'#37474f',shape:'square',size:55,guests:''},
-  {id:9, name:'4', sub:'',x:235, y:385,color:'#37474f',shape:'square',size:55,guests:''},
-  {id:10,name:'3', sub:'',x:320, y:385,color:'#37474f',shape:'square',size:55,guests:''},
-  {id:11,name:'5', sub:'',x:408, y:385,color:'#37474f',shape:'square',size:55,guests:''},
-  {id:12,name:'8', sub:'',x:495, y:385,color:'#37474f',shape:'square',size:55,guests:''},
-  {id:13,name:'9', sub:'Dancefloor',x:568,y:385,color:'#b44fff',shape:'round',size:62,guests:''},
-  {id:14,name:'10',sub:'Dancefloor',x:648,y:385,color:'#b44fff',shape:'round',size:62,guests:''},
-  {id:15,name:'23',sub:'Kaffe',x:40, y:330,color:'#795548',shape:'round',size:68,guests:''},
-  {id:16,name:'1s',sub:'Kaffe',x:50, y:425,color:'#795548',shape:'round',size:50,guests:''},
-];
-
-// ─── AUTH CHECK ───
-// Leer el usuario de la sesión de la app principal (guardado en sessionStorage/localStorage)
-
 // ══════════════════════════════════════════
-//  TRANSLATIONS
+//  STATE
 // ══════════════════════════════════════════
-const MAPA_T = {
-  en: {
-    back:'← BACK', pageTitle:'/ map', adminBadge:'ADMIN',
-    addTable:'+ Table', design:'✏️ Design', event:'👥 Event',
-    save:'💾 Save', allLayouts:'📋 All',
-    editTable:'Edit Table', numName:'Number / Name',
-    zone:'Zone', shape:'Shape', round:'⬤ Round', square:'◼ Square',
-    size:'Size', color:'Color', guests:'Guests',
-    deleteTable:'🗑 Delete Table', close:'Close',
-    mapName:'Map name', createMap:'Create map', cancel:'Cancel',
-    noLayouts:'No saved layouts.',
-    lockMsg:'You need an active session\nto access the map.',
-    viewMode:'👁 View only',
-    noSession:'No active session found.<br><span style="color:var(--text-muted)">Open the map from the Håndslag app.</span>',
-  },
-  no: {
-    back:'← TILBAKE', pageTitle:'/ kart', adminBadge:'ADMIN',
-    addTable:'+ Bord', design:'✏️ Design', event:'👥 Arrangement',
-    save:'💾 Lagre', allLayouts:'📋 Alle',
-    editTable:'Rediger bord', numName:'Nummer / Navn',
-    zone:'Sone', shape:'Form', round:'⬤ Rund', square:'◼ Firkant',
-    size:'Størrelse', color:'Farge', guests:'Gjester',
-    deleteTable:'🗑 Slett bord', close:'Lukk',
-    mapName:'Kartnavn', createMap:'Opprett kart', cancel:'Avbryt',
-    noLayouts:'Ingen lagrede oppsett.',
-    lockMsg:'Du trenger en aktiv økt\nfor å åpne kartet.',
-    viewMode:'👁 Kun visning',
-    noSession:'Ingen aktiv økt funnet.<br><span style="color:var(--text-muted)">Åpne kartet fra Håndslag-appen.</span>',
-  }
+const COLS = 8, ROWS = 5;
+const CW = 760, CH = 500;
+const CELL_W = CW / COLS; // 95
+const CELL_H = CH / ROWS; // 100
+
+const PALETTE = ['#b44fff','#06c8e8','#2ecc71','#3498db','#e74c3c','#e67e22','#f1c40f','#e91e8c','#795548','#37474f','#607d8b','#1abc9c'];
+
+const PRESETS = {
+  clasica: [
+    {id:1,name:'VIP1',sub:'VIP',col:0,row:0,color:'#b44fff',shape:'round',size:80},
+    {id:2,name:'VIP2',sub:'VIP',col:1,row:0,color:'#b44fff',shape:'round',size:80},
+    {id:3,name:'VIP3',sub:'VIP',col:2,row:0,color:'#b44fff',shape:'round',size:80},
+    {id:4,name:'VIP4',sub:'VIP',col:3,row:0,color:'#b44fff',shape:'round',size:80},
+    {id:5,name:'1',sub:'',col:7,row:1,color:'#37474f',shape:'square',size:75},
+    {id:6,name:'2',sub:'',col:7,row:2,color:'#37474f',shape:'square',size:75},
+    {id:7,name:'3',sub:'',col:7,row:3,color:'#37474f',shape:'square',size:75},
+    {id:8,name:'4',sub:'',col:2,row:3,color:'#3498db',shape:'square',size:75},
+    {id:9,name:'5',sub:'',col:3,row:3,color:'#3498db',shape:'square',size:75},
+    {id:10,name:'6',sub:'',col:4,row:3,color:'#3498db',shape:'square',size:75},
+  ],
+  vip: [
+    {id:1,name:'VIP1',sub:'VIP',col:0,row:0,color:'#b44fff',shape:'round',size:85},
+    {id:2,name:'VIP2',sub:'VIP',col:2,row:0,color:'#b44fff',shape:'round',size:85},
+    {id:3,name:'VIP3',sub:'VIP',col:4,row:0,color:'#b44fff',shape:'round',size:85},
+    {id:4,name:'VIP4',sub:'VIP',col:6,row:0,color:'#b44fff',shape:'round',size:85},
+    {id:5,name:'VIP5',sub:'VIP',col:0,row:2,color:'#e91e8c',shape:'round',size:85},
+    {id:6,name:'VIP6',sub:'VIP',col:2,row:2,color:'#e91e8c',shape:'round',size:85},
+    {id:7,name:'VIP7',sub:'VIP',col:4,row:2,color:'#e91e8c',shape:'round',size:85},
+    {id:8,name:'VIP8',sub:'VIP',col:6,row:2,color:'#e91e8c',shape:'round',size:85},
+  ],
+  numeradas: [
+    {id:1,name:'1',sub:'',col:0,row:0,color:'#3498db',shape:'square',size:75},
+    {id:2,name:'2',sub:'',col:1,row:0,color:'#3498db',shape:'square',size:75},
+    {id:3,name:'3',sub:'',col:2,row:0,color:'#3498db',shape:'square',size:75},
+    {id:4,name:'4',sub:'',col:3,row:0,color:'#3498db',shape:'square',size:75},
+    {id:5,name:'5',sub:'',col:4,row:0,color:'#3498db',shape:'square',size:75},
+    {id:6,name:'6',sub:'',col:0,row:2,color:'#2ecc71',shape:'square',size:75},
+    {id:7,name:'7',sub:'',col:1,row:2,color:'#2ecc71',shape:'square',size:75},
+    {id:8,name:'8',sub:'',col:2,row:2,color:'#2ecc71',shape:'square',size:75},
+    {id:9,name:'9',sub:'',col:3,row:2,color:'#2ecc71',shape:'square',size:75},
+    {id:10,name:'10',sub:'',col:4,row:2,color:'#2ecc71',shape:'square',size:75},
+    {id:11,name:'11',sub:'',col:0,row:4,color:'#e67e22',shape:'square',size:75},
+    {id:12,name:'12',sub:'',col:1,row:4,color:'#e67e22',shape:'square',size:75},
+    {id:13,name:'13',sub:'',col:2,row:4,color:'#e67e22',shape:'square',size:75},
+    {id:14,name:'14',sub:'',col:3,row:4,color:'#e67e22',shape:'square',size:75},
+    {id:15,name:'15',sub:'',col:4,row:4,color:'#e67e22',shape:'square',size:75},
+  ]
 };
 
-function getLang() {
-  try { return localStorage.getItem('hs_lang') || 'en'; } catch(e) { return 'en'; }
-}
+let tables = [];
+let selected = null;
+let mode = 'view'; // 'view' | 'edit'
+let movingSel = false; // in edit mode: true = waiting for destination tap
+let isAdmin = false;
+let currentUser = null;
+let nextId = 100;
+let canvasScale = 1;
+let currentDate = null; // to fetch guest data
 
-function applyMapLang() {
-  const l = getLang();
-  const T = MAPA_T[l] || MAPA_T.en;
-  const set = (id, val) => { const el = document.getElementById(id); if (el && val) el.textContent = val; };
-  set('back-btn',        T.back);
-  set('map-page-title',  T.pageTitle);
-  set('admin-badge',     T.adminBadge);
-  set('btn-add-table',   T.addTable);
-  set('btn-design',      T.design);
-  set('btn-event',       T.event);
-  set('btn-save',        T.save);
-  set('btn-all-layouts', T.allLayouts);
-  set('panel-title',     T.editTable);
-  set('lbl-numname',     T.numName);
-  set('lbl-zone',        T.zone);
-  set('lbl-shape',       T.shape);
-  set('lbl-round',       T.round);
-  set('lbl-square',      T.square);
-  set('lbl-size',        T.size);
-  set('lbl-color',       T.color);
-  set('lbl-guests',      T.guests);
-  set('btn-delete-table',T.deleteTable);
-  set('btn-close-panel', T.close);
-  set('view-mode-badge', T.viewMode);
-  const lockNode = document.querySelector('#lockScreen .lock-msg');
-  if (lockNode && lockNode.firstChild) lockNode.firstChild.textContent = T.lockMsg + ' ';
-}
-
-
+// ══════════════════════════════════════════
+//  AUTH
+// ══════════════════════════════════════════
 function checkAuth() {
-  // La app principal guarda currentUser en sessionStorage
   let user = null;
   try { user = JSON.parse(sessionStorage.getItem('hs_currentUser')); } catch(e){}
-  if (!user) try { user = JSON.parse(localStorage.getItem('hs_currentUser')); } catch(e){}
-
-  // Fallback: leer de Firebase si hay username guardado
-  const savedUser = localStorage.getItem('hs_loggedUsername');
-  if (!user && savedUser) {
-    // Intentar leer de Firebase
-    db.ref('users').once('value').then(snap => {
-      const usersData = snap.val() || {};
-      const found = Object.values(usersData).find(u => u.username === savedUser);
-      if (found) {
-        grantAccess(found);
-      } else {
-        denyAccess();
-      }
-    }).catch(() => denyAccess());
-    return;
+  if (!user) { try { user = JSON.parse(localStorage.getItem('hs_currentUser')); } catch(e){} }
+  if (!user) {
+    const uname = sessionStorage.getItem('hs_loggedUsername') || localStorage.getItem('hs_loggedUsername');
+    if (uname) {
+      db.ref('users').once('value', snap => {
+        const all = snap.val() || {};
+        const found = Object.values(all).find(u => u.username === uname);
+        if (found) grantAccess(found); else denyAccess();
+      });
+      return;
+    }
+    denyAccess(); return;
   }
-
-  if (user) {
-    grantAccess(user);
-  } else {
-    denyAccess();
-  }
+  grantAccess(user);
 }
-
 function grantAccess(user) {
   currentUser = user;
   isAdmin = (user.role === 'admin');
-  document.getElementById('lockScreen').style.display = 'none';
-  document.getElementById('appWrap').style.display = 'flex';
-  if (isAdmin) document.getElementById('admin-badge').style.display = 'block';
-  // Hide edit controls for non-admins
-  if (!isAdmin) {
-    document.getElementById('appWrap').classList.add('view-only-mode');
-    document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
-    const vb = document.getElementById('view-mode-badge');
-    if (vb) vb.style.display = 'block';
+  document.getElementById('lock').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  if (isAdmin) {
+    document.getElementById('btn-edit').style.display = 'block';
+    document.getElementById('preset-btn').style.display = 'block';
+  } else {
+    document.getElementById('btn-edit').style.display = 'none';
   }
-  initApp();
+  initMap();
 }
-
 function denyAccess() {
-  isAdmin = false;
-  const L = MAPA_T[getLang()] || MAPA_T.en;
-  const lockMsg = document.querySelector('#lockScreen .lock-msg');
-  if (lockMsg) lockMsg.innerHTML = L.noSession || 'No active session found.<br><span style="color:var(--text-muted)">Open the map from the Håndslag app.</span>';
-  document.getElementById('lock-back-btn').style.display = 'block';
-  document.getElementById('lock-back-btn').textContent = L.back || '← BACK';
+  document.getElementById('lock-msg').innerHTML = 'No hay sesión activa.<br>Abre el mapa desde la app Håndslag.';
+  document.getElementById('lock-back').style.display = 'block';
+}
+function goBack() {
+  window.location.href = window.location.href.replace(/mapa\.html.*$/, '') + 'index.html';
 }
 
-// ─── INIT APP ───
-function initApp() {
-  applyMapLang();
-  buildPalette();
-  syncFirebase();
-  setMode('design');
-}
+// ══════════════════════════════════════════
+//  FIREBASE SYNC
+// ══════════════════════════════════════════
+function initMap() {
+  fitCanvas();
+  window.addEventListener('resize', fitCanvas);
+  buildEditColors();
 
-// ─── FIREBASE SYNC ───
-function syncFirebase() {
-  db.ref('mapa_v2').on('value', snap => {
-    const data = snap.val() || {};
-    maps = data;
-    // Si no hay ningún mapa, crear el mapa principal por defecto
-    if (Object.keys(maps).length === 0) {
-      const defaultId = 'map_' + Date.now();
-      maps[defaultId] = { name: 'Principal', tables: DEFAULT_TABLES.map(t=>({...t})) };
-      db.ref('mapa_v2/' + defaultId).set(maps[defaultId]);
+  db.ref('.info/connected').on('value', s => {
+    document.getElementById('sync-dot').className = s.val() ? '' : 'off';
+  });
+
+  db.ref('mapa_v2/main/tables').on('value', snap => {
+    const raw = snap.val();
+    if (raw) {
+      // Support both old {x,y} and new {col,row} formats
+      tables = (Array.isArray(raw) ? raw : Object.values(raw)).map(t => {
+        if (t.col === undefined) {
+          t.col = Math.round((t.x || 0) / CELL_W);
+          t.row = Math.round((t.y || 0) / CELL_H);
+        }
+        return t;
+      });
+      nextId = Math.max(nextId, ...tables.map(t => t.id || 0)) + 1;
+    } else {
+      tables = PRESETS.clasica.map(t => ({...t}));
+      saveTables();
     }
-    if (!currentMapId || !maps[currentMapId]) {
-      currentMapId = Object.keys(maps)[0];
-    }
-    tables = (maps[currentMapId].tables || []).map(t=>({...t}));
-    renderMapTabs();
     render();
-    setSyncDot(true);
-  }, () => setSyncDot(false));
-
-  // Layouts por mapa
-  db.ref('mapa_layouts').on('value', snap => {
-    layouts = snap.val() || {};
-    renderLayoutSelect();
   });
+
+  // Also load current guestlist date
+  const today = new Date().toISOString().slice(0,10);
+  currentDate = today;
 }
 
-function setSyncDot(on) {
-  document.getElementById('sync-dot').className = 'sync-dot'+(on?'':' off');
+function saveTables() {
+  db.ref('mapa_v2/main/tables').set(tables.map(t => ({...t})));
 }
 
-
-// ─── SNAP TO GRID ───
-const SNAP = 20;
-function snapVal(v) { return Math.round(v / SNAP) * SNAP; }
-
-// ─── MOVE MODE ───
-let moveMode = false;
-function toggleMoveMode() {
-  moveMode = !moveMode;
-  const btn = document.getElementById('btn-move-mode');
-  btn.className = 'tb-btn' + (moveMode ? ' move-active' : '');
-  btn.textContent = moveMode ? '✋ Moviendo' : '✋ Mover';
-  document.getElementById('canvas').classList.toggle('snap-grid', moveMode);
-  render();
-}
-
-// ─── D-PAD NUDGE ───
-let nudgeInterval = null;
-function startNudge(dx, dy) {
-  doNudge(dx, dy);
-  nudgeInterval = setInterval(() => doNudge(dx, dy), 120);
-}
-function stopNudge() { clearInterval(nudgeInterval); nudgeInterval = null; }
-function doNudge(dx, dy) {
-  if (!selected) return;
-  const {w,h} = getCanvasSize();
-  selected.x = Math.max(0, Math.min(w - selected.size, selected.x + dx * SNAP));
-  selected.y = Math.max(0, Math.min(h - selected.size, selected.y + dy * SNAP));
-  if (currentMapId) db.ref('mapa_v2/'+currentMapId+'/tables').set(tables.map(t=>({...t})));
-  render();
-}
-
-// ─── BOTTOM SHEET ───
-function buildSheetColors() {
-  const container = document.getElementById('sheet-colors');
-  container.innerHTML = '';
-  PALETTE.forEach(hex => {
-    const chip = document.createElement('div');
-    chip.className = 'sc-chip';
-    chip.style.background = hex;
-    chip.dataset.color = hex;
-    chip.onclick = () => { updateSel('color', hex); syncSheetColor(hex); };
-    container.appendChild(chip);
-  });
-}
-function syncSheetColor(color) {
-  document.querySelectorAll('.sc-chip').forEach(c => c.classList.toggle('selected', c.dataset.color === color));
-}
-function syncSheetShape(shape) {
-  document.getElementById('ss-round').className = 'ss-opt' + (shape === 'round' ? ' active' : '');
-  document.getElementById('ss-square').className = 'ss-opt' + (shape === 'square' ? ' active' : '');
-}
-function changeSize(delta) {
-  if (!selected) return;
-  selected.size = Math.max(50, Math.min(130, selected.size + delta));
-  document.getElementById('sheet-size-val').textContent = selected.size + 'px';
-  if (currentMapId) db.ref('mapa_v2/'+currentMapId+'/tables').set(tables.map(t=>({...t})));
-  render();
-}
-function openEditSheet() {
-  if (!selected || !isAdmin) return;
-  document.getElementById('sh-name').value = selected.name;
-  document.getElementById('sheet-size-val').textContent = selected.size + 'px';
-  syncSheetColor(selected.color);
-  syncSheetShape(selected.shape || 'round');
-  document.getElementById('sheet-overlay').classList.add('open');
-  document.getElementById('edit-sheet').classList.add('open');
-  setTimeout(() => document.getElementById('sh-name').focus(), 300);
-}
-function closeEditSheet() {
-  document.getElementById('sheet-overlay').classList.remove('open');
-  document.getElementById('edit-sheet').classList.remove('open');
-}
-function deleteSelectedFromSheet() {
-  if (!selected || !isAdmin) return;
-  closeEditSheet();
-  if (!confirm('¿Eliminar mesa ' + selected.name + '?')) return;
-  tables = tables.filter(t => t !== selected);
-  selected = null;
-  hideDpad();
-  if (currentMapId) db.ref('mapa_v2/'+currentMapId+'/tables').set(tables.map(t=>({...t})));
-  render();
-}
-function showDpad() { document.getElementById('dpad').classList.add('visible'); }
-function hideDpad() { document.getElementById('dpad').classList.remove('visible'); }
-
-// ─── PRESET LAYOUTS ───
-const PRESET_LAYOUTS = {
-  'Discoteca clásica': [
-    {id:101,name:'VIP1',sub:'VIP',x:40,y:20,color:'#b44fff',shape:'round',size:80,guests:''},
-    {id:102,name:'VIP2',sub:'VIP',x:150,y:20,color:'#b44fff',shape:'round',size:80,guests:''},
-    {id:103,name:'VIP3',sub:'VIP',x:260,y:20,color:'#b44fff',shape:'round',size:80,guests:''},
-    {id:104,name:'VIP4',sub:'VIP',x:370,y:20,color:'#b44fff',shape:'round',size:80,guests:''},
-    {id:105,name:'1',sub:'',x:560,y:180,color:'#37474f',shape:'square',size:70,guests:''},
-    {id:106,name:'2',sub:'',x:560,y:270,color:'#37474f',shape:'square',size:70,guests:''},
-    {id:107,name:'3',sub:'',x:560,y:360,color:'#37474f',shape:'square',size:70,guests:''},
-    {id:108,name:'4',sub:'',x:200,y:340,color:'#3498db',shape:'square',size:70,guests:''},
-    {id:109,name:'5',sub:'',x:300,y:340,color:'#3498db',shape:'square',size:70,guests:''},
-    {id:110,name:'6',sub:'',x:400,y:340,color:'#3498db',shape:'square',size:70,guests:''},
-  ],
-  'Solo VIP': [
-    {id:201,name:'VIP1',sub:'VIP',x:40, y:40, color:'#b44fff',shape:'round',size:100,guests:''},
-    {id:202,name:'VIP2',sub:'VIP',x:180,y:40, color:'#b44fff',shape:'round',size:100,guests:''},
-    {id:203,name:'VIP3',sub:'VIP',x:320,y:40, color:'#b44fff',shape:'round',size:100,guests:''},
-    {id:204,name:'VIP4',sub:'VIP',x:460,y:40, color:'#b44fff',shape:'round',size:100,guests:''},
-    {id:205,name:'VIP5',sub:'VIP',x:40, y:180,color:'#e91e8c',shape:'round',size:100,guests:''},
-    {id:206,name:'VIP6',sub:'VIP',x:180,y:180,color:'#e91e8c',shape:'round',size:100,guests:''},
-    {id:207,name:'VIP7',sub:'VIP',x:320,y:180,color:'#e91e8c',shape:'round',size:100,guests:''},
-    {id:208,name:'VIP8',sub:'VIP',x:460,y:180,color:'#e91e8c',shape:'round',size:100,guests:''},
-  ],
-  'Mesas numeradas': [
-    {id:301,name:'1',sub:'',x:40, y:40, color:'#3498db',shape:'square',size:80,guests:''},
-    {id:302,name:'2',sub:'',x:160,y:40, color:'#3498db',shape:'square',size:80,guests:''},
-    {id:303,name:'3',sub:'',x:280,y:40, color:'#3498db',shape:'square',size:80,guests:''},
-    {id:304,name:'4',sub:'',x:400,y:40, color:'#3498db',shape:'square',size:80,guests:''},
-    {id:305,name:'5',sub:'',x:520,y:40, color:'#3498db',shape:'square',size:80,guests:''},
-    {id:306,name:'6',sub:'',x:40, y:160,color:'#2ecc71',shape:'square',size:80,guests:''},
-    {id:307,name:'7',sub:'',x:160,y:160,color:'#2ecc71',shape:'square',size:80,guests:''},
-    {id:308,name:'8',sub:'',x:280,y:160,color:'#2ecc71',shape:'square',size:80,guests:''},
-    {id:309,name:'9',sub:'',x:400,y:160,color:'#2ecc71',shape:'square',size:80,guests:''},
-    {id:310,name:'10',sub:'',x:520,y:160,color:'#2ecc71',shape:'square',size:80,guests:''},
-    {id:311,name:'11',sub:'',x:40, y:280,color:'#e67e22',shape:'square',size:80,guests:''},
-    {id:312,name:'12',sub:'',x:160,y:280,color:'#e67e22',shape:'square',size:80,guests:''},
-    {id:313,name:'13',sub:'',x:280,y:280,color:'#e67e22',shape:'square',size:80,guests:''},
-    {id:314,name:'14',sub:'',x:400,y:280,color:'#e67e22',shape:'square',size:80,guests:''},
-    {id:315,name:'15',sub:'',x:520,y:280,color:'#e67e22',shape:'square',size:80,guests:''},
-  ],
-};
-function loadPreset(name) {
-  if (!PRESET_LAYOUTS[name]) return;
-  if (!confirm('¿Cargar el preset "' + name + '"? Esto reemplazará las mesas actuales.')) return;
-  tables = PRESET_LAYOUTS[name].map(t=>({...t}));
-  nextId = 400;
-  selected = null; hideDpad();
-  if (currentMapId) db.ref('mapa_v2/'+currentMapId+'/tables').set(tables.map(t=>({...t})));
-  render();
-  toast('Preset "' + name + '" cargado ✓');
-}
-
-// ─── CANVAS SIZE ───
-function getCanvasSize() { return { w: 760, h: 500 }; }
-
-let canvasScale = 1;
-function fitCanvas(manual=false) {
-  const wrap = document.getElementById('canvas-wrap');
-  const outer = document.getElementById('canvas-outer');
-  const {w, h} = getCanvasSize();
+// ══════════════════════════════════════════
+//  SCALE
+// ══════════════════════════════════════════
+function fitCanvas() {
+  const wrap = document.getElementById('wrap');
   const availW = wrap.clientWidth - 24;
   const availH = wrap.clientHeight - 24;
-  const s = Math.min(1, Math.min(availW / w, availH / h));
-  canvasScale = manual ? s : Math.min(canvasScale || s, s > 0.95 ? 1 : s);
-  if (manual) canvasScale = s;
-  applyZoom();
-}
-function applyZoom() {
+  canvasScale = Math.min(availW / CW, availH / CH, 1);
   const outer = document.getElementById('canvas-outer');
-  if (!outer) return;
   outer.style.transform = 'scale(' + canvasScale + ')';
-  const {w, h} = getCanvasSize();
-  // Make the wrap scrollable with correct scroll dimensions
-  outer.style.width = w + 'px';
-  outer.style.height = h + 'px';
-  const lbl = document.getElementById('zoom-label');
-  if (lbl) lbl.textContent = Math.round(canvasScale * 100) + '%';
-}
-function adjustZoom(delta) {
-  canvasScale = Math.max(0.3, Math.min(2, canvasScale + delta));
-  applyZoom();
+  outer.style.width = CW + 'px';
+  outer.style.height = CH + 'px';
+  document.getElementById('canvas').style.width = CW + 'px';
+  document.getElementById('canvas').style.height = CH + 'px';
 }
 
-// ─── RENDER MAP TABS ───
-function renderMapTabs() {
-  const bar = document.getElementById('canvas-tab-bar');
-  const mapIds = Object.keys(maps);
-  bar.innerHTML = '';
-  mapIds.forEach(id => {
-    const m = maps[id];
-    const tab = document.createElement('button');
-    tab.className = 'canvas-tab' + (id === currentMapId ? ' active' : '');
-    tab.textContent = m.name || 'Mapa';
-    tab.onclick = () => switchMap(id);
-
-    if (isAdmin) {
-      tab.oncontextmenu = (e) => { e.preventDefault(); promptRenameMap(id); };
-    }
-    bar.appendChild(tab);
-  });
-
-  if (isAdmin) {
-    const addBtn = document.createElement('button');
-    addBtn.className = 'canvas-tab-add';
-    addBtn.textContent = '+';
-    addBtn.title = 'Nuevo mapa';
-    addBtn.onclick = () => openModal('modal-new-map');
-    bar.appendChild(addBtn);
-  }
-}
-
-// ─── SWITCH MAP ───
-function switchMap(id) {
-  // Guardar el mapa actual antes de cambiar
-  if (currentMapId && maps[currentMapId]) {
-    maps[currentMapId].tables = tables.map(t=>({...t}));
-    db.ref('mapa_v2/' + currentMapId + '/tables').set(tables.map(t=>({...t})));
-  }
-  currentMapId = id;
-  tables = (maps[id].tables || []).map(t=>({...t}));
-  selected = null;
-  document.getElementById('panel').style.display = 'none';
-  renderMapTabs();
-  render();
-}
-
-// ─── NUEVO MAPA ───
-function confirmNewMap() {
-  const name = document.getElementById('new-map-input') 
-    ? document.getElementById('new-map-input').value.trim() 
-    : document.getElementById('new-map-name').value.trim();
-  const finalName = name || 'Mapa ' + (Object.keys(maps).length + 1);
-  const id = 'map_' + Date.now();
-  const newMap = { name: finalName, tables: DEFAULT_TABLES.map(t=>({...t})) };
-  maps[id] = newMap;
-  db.ref('mapa_v2/' + id).set(newMap)
-    .then(() => { toast('Mapa "' + finalName + '" creado ✓'); switchMap(id); })
-    .catch(() => toast('Error al crear mapa'));
-  closeModal('modal-new-map');
-  document.getElementById('new-map-name').value = '';
-}
-
-// ─── RENOMBRAR MAPA ───
-let renamingMapId = null;
-function promptRenameMap(id) {
-  renamingMapId = id;
-  document.getElementById('rename-map-input').value = maps[id].name || '';
-  openModal('modal-rename-map');
-}
-function confirmRenameMap() {
-  const newName = document.getElementById('rename-map-input').value.trim();
-  if (!newName || !renamingMapId) return;
-  maps[renamingMapId].name = newName;
-  db.ref('mapa_v2/' + renamingMapId + '/name').set(newName)
-    .then(() => toast('Mapa renombrado ✓'))
-    .catch(() => toast('Error al renombrar'));
-  closeModal('modal-rename-map');
-  renderMapTabs();
-  buildSheetColors();
-  setTimeout(() => { fitCanvas(true); }, 100);
-  window.addEventListener('resize', () => fitCanvas(false));
-}
-
-// ─── RENDER CANVAS ───
+// ══════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════
 function render() {
   const canvas = document.getElementById('canvas');
-  const {w, h} = getCanvasSize();
-  canvas.style.width = w + 'px';
-  canvas.style.height = h + 'px';
   canvas.innerHTML = '';
 
-  // Zonas de fondo (sin etiquetas)
-  const ZONES = [
-    {x:10,y:8,w:740,h:130,color:'rgba(180,79,255,0.06)'},
-    {x:8,y:310,w:155,h:182,color:'rgba(255,255,255,0.03)'},
-    {x:600,y:185,w:155,h:308,color:'rgba(255,255,255,0.03)'},
-    {x:530,y:355,w:225,h:145,color:'rgba(180,79,255,0.05)'},
-  ];
-  ZONES.forEach(z => {
-    const d = document.createElement('div');
-    d.className = 'zone';
-    d.style.cssText = `left:${z.x}px;top:${z.y}px;width:${z.w}px;height:${z.h}px;background:${z.color};`;
-    canvas.appendChild(d);
-  });
+  // Grid cells in edit mode
+  if (mode === 'edit') {
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const cell = document.createElement('div');
+        cell.className = 'gcell';
+        cell.style.cssText = `left:${c*CELL_W+2}px;top:${r*CELL_H+2}px;width:${CELL_W-4}px;height:${CELL_H-4}px;`;
+        const colIdx = c, rowIdx = r;
+        cell.addEventListener('click', e => { e.stopPropagation(); onCellClick(colIdx, rowIdx); });
+        canvas.appendChild(cell);
+      }
+    }
+  }
 
-  // Barras
-  [
-    {css:'left:175px;top:148px;width:430px;height:38px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);', txt:'BACK BAR'},
-    {css:'left:175px;top:195px;width:430px;height:8px;background:rgba(180,79,255,0.3);border-radius:2px;',txt:''},
-    {css:'left:175px;top:212px;width:430px;height:78px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);',txt:'MAIN BAR'},
-  ].forEach(b => {
-    const el = document.createElement('div');
-    el.className='bar-el'; el.style.cssText=b.css; el.textContent=b.txt;
-    canvas.appendChild(el);
-  });
-
-  // Mesas
+  // Tables
   tables.forEach(t => {
+    const x = t.col * CELL_W + (CELL_W - t.size) / 2;
+    const y = t.row * CELL_H + (CELL_H - t.size) / 2;
     const el = document.createElement('div');
-    el.className = `table-el ${t.shape}`;
-    if (isAdmin && mode === 'design') el.classList.add('draggable');
-    el.dataset.id = t.id;
-    el.style.cssText = `left:${t.x}px;top:${t.y}px;width:${t.size}px;height:${t.size}px;background:${t.color};`;
-    if (t === selected) el.classList.add('selected');
-
-    const num = document.createElement('div');
-    num.className='table-num'; num.textContent=t.name;
-    el.appendChild(num);
-    if (t.sub) {
-      const sub = document.createElement('div');
-      sub.className='table-tag'; sub.textContent=t.sub;
-      el.appendChild(sub);
-    }
-    if (mode==='event' && t.guests) {
-      const gst = document.createElement('div');
-      gst.className='table-guests';
-      gst.textContent='👥'+t.guests.split(',').filter(x=>x.trim()).length;
-      el.appendChild(gst);
-    }
-
-    if (isAdmin && mode==='design') {
-      el.addEventListener('mousedown', startDrag);
-      el.addEventListener('touchstart', startDragTouch, {passive:false});
-    }
-    el.addEventListener('click', e => { e.stopPropagation(); if(isAdmin) selectTable(t); });
-    el.addEventListener('dblclick', e => { e.stopPropagation(); if(isAdmin) { selectTable(t); openEditSheet(); } });
+    el.className = 'tbl ' + (t.shape || 'round') + (selected === t ? ' selected' : '');
+    const fs = t.size > 70 ? 16 : 13;
+    const fsSub = t.size > 70 ? 9 : 7;
+    el.style.cssText = `left:${x}px;top:${y}px;width:${t.size}px;height:${t.size}px;background:${t.color};`;
+    el.innerHTML = `<span class="tbl-num" style="font-size:${fs}px">${t.name}</span>${t.sub?`<span class="tbl-sub" style="font-size:${fsSub}px">${t.sub}</span>`:''}`;
+    el.addEventListener('click', e => { e.stopPropagation(); onTableClick(t); });
     canvas.appendChild(el);
   });
 }
 
-// ─── DRAG (solo admin) ───
-function startDrag(e) {
-  e.preventDefault();
-  dragging = tables.find(x=>x.id===+e.currentTarget.dataset.id);
-  const r = document.getElementById('canvas').getBoundingClientRect();
-  dragOffX = (e.clientX-r.left)/canvasScale - dragging.x;
-  dragOffY = (e.clientY-r.top)/canvasScale - dragging.y;
-  document.addEventListener('mousemove', onDrag);
-  document.addEventListener('mouseup', stopDrag);
-}
-function startDragTouch(e) {
-  e.preventDefault();
-  const touch = e.touches[0];
-  dragging = tables.find(x=>x.id===+e.currentTarget.dataset.id);
-  const r = document.getElementById('canvas').getBoundingClientRect();
-  dragOffX = (touch.clientX-r.left)/canvasScale - dragging.x;
-  dragOffY = (touch.clientY-r.top)/canvasScale - dragging.y;
-  document.addEventListener('touchmove', onDragTouch, {passive:false});
-  document.addEventListener('touchend', stopDrag);
-}
-function onDrag(e) {
-  if(!dragging) return;
-  const {w,h} = getCanvasSize();
-  const r = document.getElementById('canvas').getBoundingClientRect();
-  dragging.x = snapVal(Math.max(0,Math.min(w-dragging.size, (e.clientX-r.left)/canvasScale - dragOffX)));
-  dragging.y = snapVal(Math.max(0,Math.min(h-dragging.size, (e.clientY-r.top)/canvasScale - dragOffY)));
-  render();
-}
-function onDragTouch(e) {
-  if(!dragging) return; e.preventDefault();
-  const t=e.touches[0]; const {w,h}=getCanvasSize();
-  const r=document.getElementById('canvas').getBoundingClientRect();
-  dragging.x=snapVal(Math.max(0,Math.min(w-dragging.size,(t.clientX-r.left)/canvasScale-dragOffX)));
-  dragging.y=snapVal(Math.max(0,Math.min(h-dragging.size,(t.clientY-r.top)/canvasScale-dragOffY)));
-  render();
-}
-function stopDrag() {
-  if(dragging && currentMapId) {
-    db.ref('mapa_v2/'+currentMapId+'/tables').set(tables.map(t=>({...t})));
+// ══════════════════════════════════════════
+//  INTERACTION
+// ══════════════════════════════════════════
+function onTableClick(t) {
+  if (mode === 'view') {
+    openInfo(t);
+  } else {
+    // Edit mode
+    if (selected === t) {
+      // Second tap on same table → open editor
+      openEdit(t);
+    } else {
+      selected = t;
+      movingSel = true;
+      document.getElementById('hint').textContent = 'Toca una celda vacía para moverla';
+      render();
+    }
   }
-  dragging=null;
-  document.removeEventListener('mousemove',onDrag);
-  document.removeEventListener('mouseup',stopDrag);
-  document.removeEventListener('touchmove',onDragTouch);
-  document.removeEventListener('touchend',stopDrag);
 }
 
-// ─── PANEL (solo admin) ───
-function selectTable(t) {
-  if(!isAdmin) return;
-  selected=t;
-  showDpad();
-  render();
-}
-function closePanel() {
-  selected=null;
-  hideDpad();
-  render();
-}
-function updateSel(key,val) {
-  if(!selected||!isAdmin) return;
-  selected[key]=val;
-  if(key==='shape'){
-    document.getElementById('sh-round').className='shape-opt'+(val==='round'?' active':'');
-    document.getElementById('sh-square').className='shape-opt'+(val==='square'?' active':'');
+function onCellClick(col, row) {
+  if (mode !== 'edit') return;
+  if (movingSel && selected) {
+    // Check if cell is occupied
+    const occupied = tables.find(t => t !== selected && t.col === col && t.row === row);
+    if (occupied) { toast('Celda ocupada'); return; }
+    selected.col = col;
+    selected.row = row;
+    saveTables();
+    toast('Mesa movida ✓');
+    selected = null; movingSel = false;
+    document.getElementById('hint').textContent = 'Toca una mesa para editarla';
+    render();
+  } else {
+    // Deselect
+    selected = null; movingSel = false;
+    document.getElementById('hint').textContent = 'Toca una mesa para editarla';
+    render();
   }
-  if(key==='color') syncPaletteColor(val);
-  // Autosave al Firebase
-  if(currentMapId) db.ref('mapa_v2/'+currentMapId+'/tables').set(tables.map(t=>({...t})));
-  render();
 }
-function deleteSelected() {
-  if(!selected||!isAdmin||!confirm('¿Eliminar mesa '+selected.name+'?')) return;
-  tables=tables.filter(t=>t!==selected);
-  selected=null;
-  document.getElementById('panel').style.display='none';
-  if(currentMapId) db.ref('mapa_v2/'+currentMapId+'/tables').set(tables.map(t=>({...t})));
+
+document.getElementById('canvas').addEventListener('click', () => {
+  if (mode === 'edit' && selected) {
+    selected = null; movingSel = false;
+    document.getElementById('hint').textContent = 'Toca una mesa para editarla';
+    render();
+  }
+});
+
+// ══════════════════════════════════════════
+//  MODE
+// ══════════════════════════════════════════
+function setMode(m) {
+  if (m === 'edit' && !isAdmin) return;
+  mode = m;
+  selected = null; movingSel = false;
+  document.getElementById('btn-view').className = 'mbtn' + (m==='view' ? ' active' : '');
+  document.getElementById('btn-edit').className = 'mbtn' + (m==='edit' ? ' active-edit' : '');
+  document.getElementById('hint').textContent = m === 'view'
+    ? 'Toca una mesa para ver info'
+    : 'Toca una mesa para editarla';
+  document.getElementById('add-btn').className = m === 'edit' ? 'show' : '';
   render();
 }
 
-// ─── PALETA ───
-function buildPalette() {
-  const c=document.getElementById('color-palette');
-  c.innerHTML='';
-  PALETTE.forEach(hex=>{
-    const chip=document.createElement('div');
-    chip.className='color-chip'; chip.style.background=hex; chip.dataset.color=hex;
-    chip.onclick=()=>{ updateSel('color',hex); syncPaletteColor(hex); };
-    c.appendChild(chip);
+// ══════════════════════════════════════════
+//  INFO SHEET (view mode)
+// ══════════════════════════════════════════
+function openInfo(t) {
+  document.getElementById('info-name').textContent = t.name;
+  document.getElementById('info-sub').textContent = t.sub || '';
+  // Load guests for this table from Firebase
+  const guestsEl = document.getElementById('info-guests');
+  guestsEl.textContent = 'Cargando...';
+  if (currentDate) {
+    db.ref('events/' + currentDate).once('value', snap => {
+      const allCats = snap.val() || {};
+      const guests = [];
+      Object.values(allCats).forEach(cat => {
+        const catGuests = Array.isArray(cat) ? cat : Object.values(cat);
+        catGuests.forEach(g => {
+          if (g && g.table && String(g.table).toLowerCase() === String(t.name).toLowerCase()) {
+            guests.push(g.name + (g.checkedIn ? ' ✓' : ''));
+          }
+        });
+      });
+      guestsEl.textContent = guests.length ? guests.join('\n') : 'Sin invitados asignados';
+    });
+  } else {
+    guestsEl.textContent = '';
+  }
+  document.getElementById('info-overlay').classList.add('open');
+  document.getElementById('info-sheet').classList.add('open');
+}
+function closeInfo() {
+  document.getElementById('info-overlay').classList.remove('open');
+  document.getElementById('info-sheet').classList.remove('open');
+}
+
+// ══════════════════════════════════════════
+//  EDIT SHEET
+// ══════════════════════════════════════════
+function buildEditColors() {
+  const row = document.getElementById('es-colors');
+  row.innerHTML = '';
+  PALETTE.forEach(hex => {
+    const c = document.createElement('div');
+    c.className = 'cc'; c.style.background = hex; c.dataset.color = hex;
+    c.addEventListener('click', () => {
+      if (!selected) return;
+      selected.color = hex;
+      syncColor(hex);
+      saveTables(); render();
+    });
+    row.appendChild(c);
   });
 }
-function syncPaletteColor(color) {
-  document.querySelectorAll('.color-chip').forEach(c=>c.classList.toggle('selected',c.dataset.color===color));
+function syncColor(color) {
+  document.querySelectorAll('.cc').forEach(c => c.classList.toggle('on', c.dataset.color === color));
+}
+function setShape(s) {
+  if (!selected) return;
+  selected.shape = s;
+  document.getElementById('sopt-round').className = 'sopt' + (s==='round'?' on':'');
+  document.getElementById('sopt-square').className = 'sopt' + (s==='square'?' on':'');
+  saveTables(); render();
+}
+function changeSize(d) {
+  if (!selected) return;
+  selected.size = Math.max(50, Math.min(130, (selected.size||80) + d));
+  document.getElementById('sz-val').textContent = selected.size + 'px';
+  saveTables(); render();
+}
+function openEdit(t) {
+  selected = t;
+  document.getElementById('es-name').value = t.name;
+  document.getElementById('sz-val').textContent = (t.size||80) + 'px';
+  syncColor(t.color);
+  document.getElementById('sopt-round').className = 'sopt' + (t.shape!=='square'?' on':'');
+  document.getElementById('sopt-square').className = 'sopt' + (t.shape==='square'?' on':'');
+  document.getElementById('edit-overlay').classList.add('open');
+  document.getElementById('edit-sheet').classList.add('open');
+  setTimeout(() => document.getElementById('es-name').select(), 200);
+}
+function closeEdit() {
+  if (selected) {
+    selected.name = document.getElementById('es-name').value || selected.name;
+    saveTables();
+  }
+  document.getElementById('edit-overlay').classList.remove('open');
+  document.getElementById('edit-sheet').classList.remove('open');
+  selected = null; movingSel = false;
+  document.getElementById('hint').textContent = 'Toca una mesa para editarla';
+  render();
+}
+document.getElementById('edit-overlay').addEventListener('click', closeEdit);
+
+function deleteSel() {
+  if (!selected) return;
+  if (!confirm('¿Eliminar mesa "' + selected.name + '"?')) return;
+  tables = tables.filter(t => t !== selected);
+  selected = null; movingSel = false;
+  saveTables(); render();
+  document.getElementById('edit-overlay').classList.remove('open');
+  document.getElementById('edit-sheet').classList.remove('open');
 }
 
-// ─── AÑADIR MESA ───
+// ══════════════════════════════════════════
+//  ADD TABLE
+// ══════════════════════════════════════════
 function addTable() {
-  if(!isAdmin) return;
-  const t={id:nextId++,name:String(tables.length+1),sub:'',x:snapVal(Math.random()*600+40),y:snapVal(Math.random()*340+40),color:'#b44fff',shape:'round',size:80,guests:''};
+  // Find first empty cell
+  let col = 0, row = 0, found = false;
+  outer: for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (!tables.find(t => t.col === c && t.row === r)) {
+        col = c; row = r; found = true; break outer;
+      }
+    }
+  }
+  const t = {id: nextId++, name: String(tables.length + 1), sub: '', col, row, color: '#b44fff', shape: 'round', size: 80};
   tables.push(t);
-  if(currentMapId) db.ref('mapa_v2/'+currentMapId+'/tables').set(tables.map(t=>({...t})));
-  selectTable(t); render();
-}
-
-// ─── MODO ───
-function setMode(m) {
-  mode=m;
-  document.getElementById('btn-design').className='tb-btn'+(m==='design'?' active':'');
-  document.getElementById('btn-event').className='tb-btn'+(m==='event'?' active':'');
-  // En modo evento, el editor de panel sigue visible para admin pero oculta drag
-  if(selected) document.getElementById('p-guests-wrap').style.display=m==='event'?'block':'none';
+  saveTables();
   render();
+  openEdit(t);
+  toast('Mesa añadida ✓');
 }
 
-// ─── LAYOUTS ───
-function saveLayout() {
-  if(!isAdmin) return;
-  const name=prompt('Nombre del layout:',currentLayoutName);
-  if(!name) return;
-  currentLayoutName=name;
-  const data=tables.map(t=>({...t}));
-  layouts[name]=data;
-  db.ref('mapa_layouts/'+name).set(data)
-    .then(()=>toast('Layout "'+name+'" guardado ✓'))
-    .catch(()=>toast('Error al guardar'));
-  renderLayoutSelect();
+// ══════════════════════════════════════════
+//  PRESETS
+// ══════════════════════════════════════════
+function openPresets() { document.getElementById('preset-modal').classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function loadPreset(name) {
+  if (!PRESETS[name]) return;
+  if (!confirm('¿Cargar preset? Reemplazará las mesas actuales.')) return;
+  tables = PRESETS[name].map(t => ({...t}));
+  nextId = 200;
+  selected = null; movingSel = false;
+  saveTables(); render();
+  closeModal('preset-modal');
+  toast('Preset cargado ✓');
 }
-function loadLayoutByName(name) {
-  if(!name||!layouts[name]) return;
-  currentLayoutName=name;
-  tables=layouts[name].map(t=>({...t}));
-  selected=null; document.getElementById('panel').style.display='none';
-  render();
-}
-function renderLayoutSelect() {
-  const sel=document.getElementById('layout-select');
-  const names=Object.keys(layouts);
-  sel.innerHTML='<option value="">— layouts —</option>'+names.map(n=>`<option value="${n}"${n===currentLayoutName?' selected':''}>${n}</option>`).join('');
-}
-function openLayoutsModal(){ renderLayoutsList(); openModal('modal-layouts'); }
-function renderLayoutsList(){
-  const list=document.getElementById('layouts-list');
-  const names=Object.keys(layouts);
-  list.innerHTML=names.length?names.map(n=>`
-    <div class="layout-item${n===currentLayoutName?' current':''}">
-      <span class="layout-item-name">${n}</span>
-      <div class="layout-item-btns">
-        <button class="tb-btn" onclick="loadLayoutByName('${n}');closeModal('modal-layouts')">▶</button>
-        ${isAdmin?`<button class="tb-btn danger" onclick="deleteLayout('${n}')">🗑</button>`:''}
-      </div></div>`).join('')
-    :`<p style="font-family:var(--font-m);font-size:11px;color:var(--text-muted)">${(MAPA_T[getLang()]||MAPA_T.en).noLayouts}</p>`;
-}
-function deleteLayout(name){
-  if(!confirm('¿Eliminar layout "'+name+'"?')) return;
-  delete layouts[name];
-  db.ref('mapa_layouts/'+name).remove().then(()=>{toast('"'+name+'" eliminado');renderLayoutsList();});
-  renderLayoutSelect();
-}
-
-// ─── MODALS ───
-function openModal(id){ document.getElementById(id).classList.add('open'); }
-function closeModal(id){ document.getElementById(id).classList.remove('open'); }
-document.querySelectorAll('.modal-overlay').forEach(m=>{
-  m.addEventListener('click',e=>{ if(e.target===m) m.classList.remove('open'); });
+document.getElementById('preset-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('preset-modal')) closeModal('preset-modal');
 });
 
-// ─── TOAST ───
-function toast(msg){
-  const el=document.getElementById('toast');
-  el.textContent=msg; el.classList.add('show');
-  setTimeout(()=>el.classList.remove('show'),2500);
+// ══════════════════════════════════════════
+//  TOAST
+// ══════════════════════════════════════════
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2200);
 }
 
-// ─── BACK ───
-function goBack(){
-  // Works both locally and on GitHub Pages subdirectory
-  const base = window.location.href.replace(/mapa\.html.*$/, '');
-  window.location.href = base + 'index.html';
-}
-
-document.getElementById('canvas').addEventListener('click',function(e){
-  if(e.target===this){ selected=null; hideDpad(); render(); }
-});
-
-// ─── ARRANCAR ───
-// Guardar usuario al iniciar sesión (añadir esto en index.html)
-// sessionStorage.setItem('hs_currentUser', JSON.stringify(currentUser));
-applyMapLang();
+// ══════════════════════════════════════════
+//  START
+// ══════════════════════════════════════════
 checkAuth();
 </script>
 </body>
