@@ -194,6 +194,9 @@ function grantAccess(user){
   if(isAdmin)document.getElementById('btn-edit').style.display='block';
   fitSVG();
   window.addEventListener('resize',fitSVG);
+  // Render default tables immediately so they show before Firebase responds
+  tables=DEFAULT_TABLES.map(function(t){return Object.assign({},t);});
+  render();
   db.ref('.info/connected').on('value',function(s){document.getElementById('sync-dot').className=s.val()?'':'off';});
   db.ref('mapa_v2/main/tables').on('value',function(snap){
     var raw=snap.val();
