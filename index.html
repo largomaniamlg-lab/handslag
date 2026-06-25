@@ -564,12 +564,18 @@ body.light-mode .form-input, body.light-mode .form-select { background:#f0f0f0; 
   </div>
 
   <!-- Text Size -->
-  <div class="section-label" id="lbl-settings-size">Text Size</div>
-  <div style="display:flex;gap:0.6rem;margin-top:0.5rem;margin-bottom:1.5rem">
-    <button onclick="setTextSize('small')" class="lang-btn" id="sizeBtnS" style="flex:1;padding:0.75rem;font-size:0.7rem">A</button>
-    <button onclick="setTextSize('medium')" class="lang-btn active" id="sizeBtnM" style="flex:1;padding:0.75rem;font-size:0.9rem">A</button>
-    <button onclick="setTextSize('large')" class="lang-btn" id="sizeBtnL" style="flex:1;padding:0.75rem;font-size:1.1rem">A</button>
+  <div class="section-label" style="display:flex;justify-content:space-between;align-items:center">
+    <span id="lbl-settings-size">Text Size</span>
+    <button onclick="toggleSizeForm()" id="btn-toggle-size" style="font-size:0.65rem;padding:3px 10px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer">Change</button>
   </div>
+  <div id="sizeFormWrap" style="display:none;margin-top:0.5rem;margin-bottom:1.5rem">
+    <div style="display:flex;gap:0.6rem">
+      <button onclick="setTextSize('small')" class="lang-btn" id="sizeBtnS" style="flex:1;padding:0.75rem;font-size:0.7rem">A</button>
+      <button onclick="setTextSize('medium')" class="lang-btn active" id="sizeBtnM" style="flex:1;padding:0.75rem;font-size:0.9rem">A</button>
+      <button onclick="setTextSize('large')" class="lang-btn" id="sizeBtnL" style="flex:1;padding:0.75rem;font-size:1.1rem">A</button>
+    </div>
+  </div>
+  <div style="margin-bottom:1.5rem"></div>
 
   <!-- Activity Log Calendar — owner only -->
   <div id="activityCalWrap" style="display:none">
@@ -587,12 +593,12 @@ body.light-mode .form-input, body.light-mode .form-select { background:#f0f0f0; 
   </div>
 
   <nav class="bottom-nav">
-    <button class="nav-btn" onclick="showTab('main',this)"><span>📋</span><span>List</span></button>
-    <button class="nav-btn" id="statsNavBtn5" onclick="showTab('stats',this)"><span>📊</span><span>Stats</span></button>
-    <button class="nav-btn" id="adminNavBtn5" style="display:none" onclick="showTab('admin',this)"><span>🔐</span><span>Admin</span></button>
-    <button class="nav-btn" onclick="openMap()"><span>🗺️</span><span>Mapa</span></button>
-    <button class="nav-btn active" onclick="showTab('settings',this)"><span>⚙️</span><span>Settings</span></button>
-    <button class="nav-btn" onclick="doLogout()"><span>🚪</span><span>Out</span></button>
+    <button class="nav-btn" onclick="showTab('main',this)"><span>📋</span><span id="nav-list5">List</span></button>
+    <button class="nav-btn" id="statsNavBtn5" onclick="showTab('stats',this)"><span>📊</span><span id="nav-stats5">Stats</span></button>
+    <button class="nav-btn" id="adminNavBtn5" style="display:none" onclick="showTab('admin',this)"><span>🔐</span><span id="nav-admin5">Admin</span></button>
+    <button class="nav-btn" onclick="openMap()"><span>🗺️</span><span id="nav-map5">Map</span></button>
+    <button class="nav-btn active" onclick="showTab('settings',this)"><span>⚙️</span><span id="nav-settings5">Settings</span></button>
+    <button class="nav-btn" onclick="doLogout()"><span>🚪</span><span id="nav-logout5">Out</span></button>
   </nav>
 </div>
 
@@ -1731,6 +1737,13 @@ function showTab(tab) {
 // ══════════════════════════════════════════
 //  SETTINGS FUNCTIONS
 // ══════════════════════════════════════════
+function toggleSizeForm() {
+  const wrap = document.getElementById('sizeFormWrap');
+  const isOpen = wrap.style.display === 'block';
+  wrap.style.display = isOpen ? 'none' : 'block';
+  document.getElementById('btn-toggle-size').textContent = isOpen ? (lang==='no'?'Endre':'Change') : (lang==='no'?'Avbryt':'Cancel');
+}
+
 function togglePwForm() {
   const wrap = document.getElementById('pwFormWrap');
   const isOpen = wrap.style.display === 'flex';
