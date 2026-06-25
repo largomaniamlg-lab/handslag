@@ -61,11 +61,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   <div style="font-size:40px">🔐</div>
   <div class="lock-logo">HÅNDSLAG</div>
   <div style="font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;line-height:1.8" id="lock-msg">Verificando acceso...</div>
-  <button style="display:none;font-family:var(--mono);font-size:11px;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 20px;border-radius:8px;cursor:pointer" id="lock-back" onclick="goBack()">← Volver</button>
+  <button style="display:none;font-family:var(--mono);font-size:11px;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 20px;border-radius:8px;cursor:pointer" id="lock-back" onclick="goBack()" id="btn-back-lock">← Back</button>
 </div>
 <div id="app">
   <div id="hdr">
-    <button class="hbtn" onclick="goBack()">← Volver</button>
+    <button class="hbtn" onclick="goBack()" id="btn-back-top">← Back</button>
     <span class="logo">Håndslag</span>
     <div class="spacer"></div>
     <div id="sync-dot"></div>
@@ -136,8 +136,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 <script>
 var _lang = localStorage.getItem('hs_lang') || 'en';
 var _mt = {
-  en: { hint:'Tap a table', noSession:'No active session.<br>Open from the Håndslag app.', loading:'Loading...', noGuests:'No guests assigned', free:'Free', occupied:'Occupied', complete:'Complete', expired:'Hold expired', checkin:'Check-in', tables:'Tables', freeHold:'30min · Free', paidHold:'1h · Paid', expiredTag:' ⚠️ EXPIRED', checkedAt:'Checked in:' },
-  no: { hint:'Trykk på et bord', noSession:'Ingen aktiv økt.<br>Åpne fra Håndslag-appen.', loading:'Laster...', noGuests:'Ingen gjester tildelt', free:'Ledig', occupied:'Opptatt', complete:'Fullstendig', expired:'Hold utløpt', checkin:'Innsjekk', tables:'Bord', freeHold:'30min · Gratis', paidHold:'1t · Betalt', expiredTag:' ⚠️ UTLØPT', checkedAt:'Sjekket inn:' }
+  en: { hint:'Tap a table', noSession:'No active session.<br>Open from the Håndslag app.', loading:'Loading...', noGuests:'No guests assigned', free:'Free', occupied:'Occupied', complete:'Complete', expired:'Hold expired', checkin:'Check-in', tables:'Tables', freeHold:'30min · Free', paidHold:'1h · Paid', expiredTag:' ⚠️ EXPIRED', checkedAt:'Checked in:', back:'← Back' },
+  no: { hint:'Trykk på et bord', noSession:'Ingen aktiv økt.<br>Åpne fra Håndslag-appen.', loading:'Laster...', noGuests:'Ingen gjester tildelt', free:'Ledig', occupied:'Opptatt', complete:'Fullstendig', expired:'Hold utløpt', checkin:'Innsjekk', tables:'Bord', freeHold:'30min · Gratis', paidHold:'1t · Betalt', expiredTag:' ⚠️ UTLØPT', checkedAt:'Sjekket inn:', back:'← Tilbake' }
 };
 var mt = _mt[_lang] || _mt.en;
 function applyMapLang() {
@@ -145,6 +145,8 @@ function applyMapLang() {
   document.getElementById('hint').textContent = mt.hint;
   set('lbl-checkin', mt.checkin); set('lbl-tables', mt.tables); set('lbl-complete', mt.complete);
   set('leg-free', mt.free); set('leg-occ', mt.occupied); set('leg-full', mt.complete); set('leg-exp', mt.expired);
+  var b1=document.getElementById('btn-back-top'); if(b1) b1.textContent=mt.back;
+  var b2=document.getElementById('btn-back-lock'); if(b2) b2.textContent=mt.back;
 }
 const FB_CFG={apiKey:"AIzaSyBR0HsO3WM-Db-1QACcrY789oiXaCR8zpA",authDomain:"handslag-fdd42.firebaseapp.com",databaseURL:"https://handslag-fdd42-default-rtdb.europe-west1.firebasedatabase.app",projectId:"handslag-fdd42",storageBucket:"handslag-fdd42.appspot.com",messagingSenderId:"1090291987706",appId:"1:1090291987706:web:0effe68dc7e7faa1ef06cd"};
 firebase.initializeApp(FB_CFG);
