@@ -220,6 +220,13 @@ body::before {
 /* ── ADMIN PANEL ── */
 #adminScreen { padding: 1.5rem 1rem 6rem; gap: 1rem; overflow-y: auto; }
 #settingsScreen { padding: 1.5rem 1rem 6rem; gap: 1rem; overflow-y: auto; }
+.color-swatch { width: 38px; height: 38px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; transition: border-color 0.2s, transform 0.15s; }
+.color-swatch:active { transform: scale(0.9); }
+.color-swatch.active { border-color: #fff; }
+body.light-mode { --bg:#f4f4f4; --surface:#ffffff; --border:rgba(0,0,0,0.1); --text:#111; --muted:#666; }
+body.light-mode .bottom-nav { background: rgba(255,255,255,0.97); border-top-color: rgba(0,0,0,0.1); }
+body.light-mode .guest-card { background: #fff; }
+body.light-mode .form-input, body.light-mode .form-select { background:#f0f0f0; color:#111; border-color:rgba(0,0,0,0.15); }
 .admin-title { font-family: 'Barlow Condensed', sans-serif; font-size: 1.8rem; letter-spacing: 0.08em; color: var(--accent); }
 .user-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; display: flex; align-items: center; gap: 0.75rem; }
 .user-item + .user-item { margin-top: 0.5rem; }
@@ -451,8 +458,8 @@ body::before {
   <nav class="bottom-nav" id="mainNav">
     <button class="nav-btn active" onclick="showTab('main',this)"><span>📋</span><span id="nav-list">List</span></button>
     <button class="nav-btn" id="statsNavBtn" onclick="showTab('stats',this)"><span>📊</span><span id="nav-stats">Stats</span></button>
-    <button class="nav-btn" id="adminNavBtn" style="display:none" onclick="showTab('admin',this)"><span>🔐</span><span>Admin</span></button>
-    <button class="nav-btn" onclick="openMap()"><span>🗺️</span><span>Mapa</span></button>
+    <button class="nav-btn" id="adminNavBtn" style="display:none" onclick="showTab('admin',this)"><span>🔐</span><span id="nav-admin">Admin</span></button>
+    <button class="nav-btn" onclick="openMap()"><span>🗺️</span><span id="nav-map">Map</span></button>
     <button class="nav-btn" onclick="showTab('settings',this)"><span>⚙️</span><span id="nav-settings">Settings</span></button>
     <button class="nav-btn" onclick="doLogout()"><span>🚪</span><span id="nav-logout">Out</span></button>
   </nav>
@@ -517,8 +524,51 @@ body::before {
   <!-- Language -->
   <div class="section-label" id="lbl-settings-lang">Language</div>
   <div style="display:flex;gap:0.6rem;margin-top:0.5rem;margin-bottom:1.5rem">
-    <button class="lang-btn active" onclick="setLang('en',this)" style="flex:1;padding:0.75rem">EN</button>
-    <button class="lang-btn" onclick="setLang('no',this)" style="flex:1;padding:0.75rem">NB</button>
+    <button class="lang-btn active" id="settingsLangEn" onclick="setLang('en',this)" style="flex:1;padding:0.75rem">EN</button>
+    <button class="lang-btn" id="settingsLangNo" onclick="setLang('no',this)" style="flex:1;padding:0.75rem">NB</button>
+  </div>
+
+  <!-- Change Password -->
+  <div class="section-label" id="lbl-settings-pw">Change Password</div>
+  <div style="margin-top:0.5rem;margin-bottom:1.5rem;display:flex;flex-direction:column;gap:0.5rem">
+    <input type="password" class="form-input" id="settingsNewPw" placeholder="New password" />
+    <input type="password" class="form-input" id="settingsConfirmPw" placeholder="Confirm password" />
+    <div class="auth-error" id="settingsPwErr" style="display:none"></div>
+    <div class="auth-success" id="settingsPwOk" style="display:none"></div>
+    <button class="btn-save" onclick="changePassword()" id="btn-change-pw">SAVE →</button>
+  </div>
+
+  <!-- Display Name -->
+  <div class="section-label" id="lbl-settings-name">Display Name</div>
+  <div style="margin-top:0.5rem;margin-bottom:1.5rem;display:flex;gap:0.5rem">
+    <input type="text" class="form-input" id="settingsNameInput" placeholder="Your name" style="flex:1" />
+    <button class="btn-save" onclick="changeDisplayName()" style="flex:0;padding:0.75rem 1rem">SAVE</button>
+  </div>
+
+  <!-- Color Theme -->
+  <div class="section-label" id="lbl-settings-color">Accent Color</div>
+  <div style="display:flex;gap:0.6rem;margin-top:0.5rem;margin-bottom:1.5rem;flex-wrap:wrap">
+    <button onclick="setAccentColor('#b44fff','purple')" class="color-swatch" style="background:#b44fff" title="Purple"></button>
+    <button onclick="setAccentColor('#06c8e8','cyan')" class="color-swatch" style="background:#06c8e8" title="Cyan"></button>
+    <button onclick="setAccentColor('#1db954','green')" class="color-swatch" style="background:#1db954" title="Green"></button>
+    <button onclick="setAccentColor('#f97316','orange')" class="color-swatch" style="background:#f97316" title="Orange"></button>
+    <button onclick="setAccentColor('#ef4444','red')" class="color-swatch" style="background:#ef4444" title="Red"></button>
+    <button onclick="setAccentColor('#f5c518','gold')" class="color-swatch" style="background:#f5c518" title="Gold"></button>
+  </div>
+
+  <!-- Dark / Light Mode -->
+  <div class="section-label" id="lbl-settings-theme">Theme</div>
+  <div style="display:flex;gap:0.6rem;margin-top:0.5rem;margin-bottom:1.5rem">
+    <button onclick="setTheme('dark')" id="themeBtnDark" class="lang-btn active" style="flex:1;padding:0.75rem" id="lbl-theme-dark">🌙 Dark</button>
+    <button onclick="setTheme('light')" id="themeBtnLight" class="lang-btn" style="flex:1;padding:0.75rem" id="lbl-theme-light">☀️ Light</button>
+  </div>
+
+  <!-- Text Size -->
+  <div class="section-label" id="lbl-settings-size">Text Size</div>
+  <div style="display:flex;gap:0.6rem;margin-top:0.5rem;margin-bottom:1.5rem">
+    <button onclick="setTextSize('small')" class="lang-btn" id="sizeBtnS" style="flex:1;padding:0.75rem;font-size:0.7rem">A</button>
+    <button onclick="setTextSize('medium')" class="lang-btn active" id="sizeBtnM" style="flex:1;padding:0.75rem;font-size:0.9rem">A</button>
+    <button onclick="setTextSize('large')" class="lang-btn" id="sizeBtnL" style="flex:1;padding:0.75rem;font-size:1.1rem">A</button>
   </div>
 
   <!-- Activity Log Calendar — owner only -->
@@ -801,7 +851,8 @@ const T = {
     signin:'Sign In', register:'Request Access', noAccount:'No account? Request access',
     backLogin:'← Back to sign in', sendRequest:'SEND REQUEST →', signIn:'SIGN IN →',
     total:'Total', inside:'Inside', pending:'Pending',
-    navList:'List', navStats:'Stats', navLogout:'Out',
+    navList:'List', navStats:'Stats', navLogout:'Out', navAdmin:'Admin', navMap:'Map', navSettings:'Settings',
+    settingsTitle:'Settings', settingsLang:'Language', settingsPw:'Change Password', settingsName:'Display Name', settingsColor:'Accent Color', settingsTheme:'Theme', settingsSize:'Text Size', settingsActivity:'Activity Log',
     statsTitle:'STATISTICS', attendance:'Attendance', breakdown:'Breakdown',
     bTotal:'Total on list', bIn:'Checked in', bVip:'VIP guests', bTable:'Tables', bPending:'Still pending',
     addTitle:'ADD GUEST', name:'Full Name', guestsPlus:'Guests +', table:'Table',
@@ -819,7 +870,8 @@ const T = {
     signin:'Logg inn', register:'Be om tilgang', noAccount:'Ingen konto? Be om tilgang',
     backLogin:'← Tilbake til innlogging', sendRequest:'SEND FORESPØRSEL →', signIn:'LOGG INN →',
     total:'Totalt', inside:'Inne', pending:'Venter',
-    navList:'Liste', navStats:'Statistikk', navLogout:'Ut',
+    navList:'Liste', navStats:'Statistikk', navLogout:'Ut', navAdmin:'Admin', navMap:'Kart', navSettings:'Innst.',
+    settingsTitle:'Innstillinger', settingsLang:'Språk', settingsPw:'Endre passord', settingsName:'Visningsnavn', settingsColor:'Aksentfarge', settingsTheme:'Tema', settingsSize:'Tekststørrelse', settingsActivity:'Aktivitetslogg',
     statsTitle:'STATISTIKK', attendance:'Oppmøte', breakdown:'Oversikt',
     bTotal:'Totalt på listen', bIn:'Sjekket inn', bVip:'VIP-gjester', bTable:'Bord', bPending:'Venter fortsatt',
     addTitle:'LEGG TIL GJEST', name:'Fullt navn', guestsPlus:'Gjester +', table:'Bord',
@@ -868,6 +920,18 @@ function applyAppLang() {
   document.querySelectorAll('[id^="nav-list"]').forEach(el => el.textContent = L.navList);
   document.querySelectorAll('[id^="nav-stats"]').forEach(el => el.textContent = L.navStats);
   document.querySelectorAll('[id^="nav-logout"]').forEach(el => el.textContent = L.navLogout);
+  document.querySelectorAll('[id^="nav-settings"]').forEach(el => el.textContent = L.navSettings);
+  document.querySelectorAll('[id^="nav-admin"]').forEach(el => el.textContent = L.navAdmin);
+  document.querySelectorAll('[id^="nav-map"]').forEach(el => el.textContent = L.navMap);
+  set('lbl-settings-title',  L.settingsTitle);
+  set('lbl-settings-lang',   L.settingsLang);
+  set('lbl-settings-pw',     L.settingsPw);
+  set('lbl-settings-name',   L.settingsName);
+  set('lbl-settings-color',  L.settingsColor);
+  set('lbl-settings-theme',  L.settingsTheme);
+  set('lbl-settings-size',   L.settingsSize);
+  set('lbl-activity-log',    L.settingsActivity);
+  set('btn-change-pw',       (L.navSettings==='Innst.' ? 'LAGRE →' : 'SAVE →'));
   document.querySelectorAll('.filter-tabs .tab').forEach(btn => {
     const oc = btn.getAttribute('onclick') || '';
     if (oc.includes("'guestlist'")) btn.textContent = lang==='no' ? '📋 Gjesteliste' : '📋 Guestlist';
@@ -1661,7 +1725,73 @@ function showTab(tab) {
   if(tab==='main')     { document.getElementById('mainScreen').classList.add('active'); renderList(); }
   if(tab==='stats')    { document.getElementById('statsScreen').classList.add('active'); updateStats(); }
   if(tab==='admin')    { document.getElementById('adminScreen').classList.add('active'); renderAdmin(); }
-  if(tab==='settings') { document.getElementById('settingsScreen').classList.add('active'); renderActCal(); }
+  if(tab==='settings') { document.getElementById('settingsScreen').classList.add('active'); renderActCal(); populateSettingsFields(); }
+}
+
+// ══════════════════════════════════════════
+//  SETTINGS FUNCTIONS
+// ══════════════════════════════════════════
+function changePassword() {
+  const pw = document.getElementById('settingsNewPw').value;
+  const pw2 = document.getElementById('settingsConfirmPw').value;
+  const err = document.getElementById('settingsPwErr');
+  const ok = document.getElementById('settingsPwOk');
+  err.style.display = 'none'; ok.style.display = 'none';
+  if (!pw || pw.length < 6) { err.style.display='block'; err.textContent = lang==='no'?'Minst 6 tegn':'At least 6 characters'; return; }
+  if (pw !== pw2) { err.style.display='block'; err.textContent = lang==='no'?'Passordene stemmer ikke':'Passwords do not match'; return; }
+  const fbUser = firebase.auth().currentUser;
+  if (!fbUser) return;
+  fbUser.updatePassword(pw)
+    .then(() => { ok.style.display='block'; ok.textContent = lang==='no'?'Passord oppdatert!':'Password updated!'; document.getElementById('settingsNewPw').value=''; document.getElementById('settingsConfirmPw').value=''; })
+    .catch(e => { err.style.display='block'; err.textContent = e.code==='auth/requires-recent-login' ? (lang==='no'?'Logg inn på nytt først':'Please log in again first') : (e.message||'Error'); });
+}
+
+function changeDisplayName() {
+  const name = document.getElementById('settingsNameInput').value.trim();
+  if (!name || !currentUser || !currentUser.uid) return;
+  db.ref('users/' + currentUser.uid + '/name').set(name).then(() => {
+    currentUser.name = name;
+    showToast(lang==='no'?'Navn oppdatert':'Name updated');
+    logActivity('changed_name', name);
+  });
+}
+
+function setAccentColor(color, key) {
+  document.documentElement.style.setProperty('--accent', color);
+  localStorage.setItem('hs_accent', color);
+  localStorage.setItem('hs_accent_key', key);
+  document.querySelectorAll('.color-swatch').forEach(el => el.classList.toggle('active', el.style.background === color));
+}
+
+function setTheme(theme) {
+  document.body.classList.toggle('light-mode', theme === 'light');
+  localStorage.setItem('hs_theme', theme);
+  document.getElementById('themeBtnDark').classList.toggle('active', theme === 'dark');
+  document.getElementById('themeBtnLight').classList.toggle('active', theme === 'light');
+}
+
+function setTextSize(size) {
+  const map = { small: '13px', medium: '15px', large: '17px' };
+  document.documentElement.style.fontSize = map[size] || '15px';
+  localStorage.setItem('hs_textsize', size);
+  ['sizeBtnS','sizeBtnM','sizeBtnL'].forEach(id => document.getElementById(id).classList.remove('active'));
+  document.getElementById(size==='small'?'sizeBtnS':size==='large'?'sizeBtnL':'sizeBtnM').classList.add('active');
+}
+
+function applyStoredPrefs() {
+  const accent = localStorage.getItem('hs_accent');
+  if (accent) { document.documentElement.style.setProperty('--accent', accent); document.querySelectorAll('.color-swatch').forEach(el => el.classList.toggle('active', el.style.background === accent)); }
+  const theme = localStorage.getItem('hs_theme');
+  if (theme) setTheme(theme);
+  const size = localStorage.getItem('hs_textsize');
+  if (size) setTextSize(size);
+}
+
+function populateSettingsFields() {
+  if (currentUser) document.getElementById('settingsNameInput').value = currentUser.name || '';
+  const lang2 = localStorage.getItem('hs_lang') || 'en';
+  document.getElementById('settingsLangEn').classList.toggle('active', lang2 === 'en');
+  document.getElementById('settingsLangNo').classList.toggle('active', lang2 === 'no');
 }
 
 // ══════════════════════════════════════════
@@ -1775,6 +1905,7 @@ window.addEventListener('load', () => {
     });
   }
   applyAppLang();
+  applyStoredPrefs();
   // Auto-login via Firebase Auth session
   firebase.auth().onAuthStateChanged(fbUser => {
     if (fbUser && !currentUser) {
