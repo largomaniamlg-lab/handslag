@@ -202,8 +202,14 @@ function grantAccess(user){
     var raw=snap.val();
     if(raw){
       var arr=Array.isArray(raw)?raw:Object.values(raw);
-      tables=arr.filter(Boolean);
-      nextId=Math.max(nextId,...tables.map(function(t){return t.id||0;}))+1;
+      arr=arr.filter(Boolean);
+      if(arr.length>=DEFAULT_TABLES.length){
+        tables=arr;
+        nextId=Math.max(nextId,...tables.map(function(t){return t.id||0;}))+1;
+      } else {
+        tables=DEFAULT_TABLES.map(function(t){return Object.assign({},t);});
+        saveTables();
+      }
     } else {
       tables=DEFAULT_TABLES.map(function(t){return Object.assign({},t);});
       saveTables();
