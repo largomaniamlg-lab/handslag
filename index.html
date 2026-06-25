@@ -1506,6 +1506,35 @@ function renderAdmin() {
   _renderAdminHtml();
 }
 
+function createStaffAccount() {
+  const name  = document.getElementById('new-staff-name').value.trim();
+  const uname = document.getElementById('new-staff-user').value.trim();
+  const email = document.getElementById('new-staff-email').value.trim();
+  const pass  = document.getElementById('new-staff-pass').value;
+  const role  = document.getElementById('new-staff-role').value;
+  const errEl = document.getElementById('new-staff-err');
+  if (!name || !uname || !email || !pass) { errEl.textContent = 'Fill all fields'; errEl.style.display='block'; return; }
+  errEl.style.display = 'none';
+  const app2 = firebase.initializeApp(firebase.app().options, 'temp-' + Date.now());
+  firebase.auth(app2).createUserWithEmailAndPassword(email, pass)
+    .then(cred => {
+      const uid = cred.user.uid;
+      const regAt = new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) + ' ' + new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit',year:'2-digit'});
+      return db.ref('users/' + uid).set({ name, username: uname, email, role, approved: true, registeredAt: regAt })
+        .then(() => firebase.auth(app2).signOut())
+        .then(() => app2.delete());
+    })
+    .then(() => {
+      showToast('✓ Account created: ' + name + ' (' + role + ')');
+      logActivity('created_account', '@' + uname + ' as ' + role);
+      document.getElementById('new-staff-name').value='';
+      document.getElementById('new-staff-user').value='';
+      document.getElementById('new-staff-email').value='';
+      document.getElementById('new-staff-pass').value='';
+      document.getElementById('create-staff-form').style.display='none';
+    })
+    .catch(e => { errEl.textContent = e.message || e.code; errEl.style.display='block'; });
+}
 function _renderAdminHtml() {
   const f = window._roleFlags || {};
   const showRoles = f.isOwner;
@@ -1513,6 +1542,10 @@ function _renderAdminHtml() {
   const pending  = users.filter(u => !u.approved && u.role !== 'owner' && u.role !== 'admin');
   const approved = users.filter(u => u.approved && u.role !== 'owner' && u.role !== 'admin');
   let html = '';
+
+  if (f.isOwner || f.isAdmin) {
+    html += `<div style="margin-bottom:1rem"><button onclick="document.getElementById('create-staff-form').style.display=document.getElementById('create-staff-form').style.display==='none'?'flex':'none'" style="background:var(--grad);color:#fff;border:none;border-radius:8px;padding:0.45rem 1rem;font-family:'Barlow Condensed',sans-serif;font-size:0.85rem;letter-spacing:0.08em;cursor:pointer;width:100%">+ CREATE ACCOUNT</button><div id="create-staff-form" style="display:none;flex-direction:column;gap:0.5rem;margin-top:0.75rem;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1rem"><input id="new-staff-name" placeholder="Full name" style="padding:0.4rem 0.6rem;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:0.8rem"><input id="new-staff-user" placeholder="Username" style="padding:0.4rem 0.6rem;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:0.8rem"><input id="new-staff-email" placeholder="Email" type="email" style="padding:0.4rem 0.6rem;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:0.8rem"><input id="new-staff-pass" placeholder="Password" type="password" style="padding:0.4rem 0.6rem;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:0.8rem"><select id="new-staff-role" style="padding:0.4rem 0.6rem;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:0.8rem"><option value="door">Door</option><option value="promoter">Promoter</option><option value="admin">Admin</option></select><div id="new-staff-err" style="display:none;color:#ef4444;font-size:0.75rem"></div><button onclick="createStaffAccount()" style="background:var(--grad);color:#fff;border:none;border-radius:8px;padding:0.45rem;font-family:'Barlow Condensed',sans-serif;font-size:0.85rem;cursor:pointer">CREATE →</button></div></div>`;
+  }
 
   const roleLabel = r => ({owner:'Owner',admin:'Admin',promoter:'Promoter',door:'Door',bar:'Bar'}[r]||r);
 
