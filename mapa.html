@@ -220,7 +220,7 @@ function loadTableStats(){
         if(g&&g.table){
           var k=String(g.table).toLowerCase();
           if(!stats[k])stats[k]={count:0};
-          stats[k].count++;
+          stats[k].count+=1+(parseInt(g.guests)||0);
         }
       });
     });
@@ -311,7 +311,9 @@ function openInfo(t){
     el.innerHTML=guests.map(function(g){
       var lines=[];
       lines.push('<div style="border-bottom:1px solid rgba(255,255,255,0.06);padding:10px 0;">');
-      lines.push('<div style="font-family:var(--font);font-size:18px;font-weight:700;color:'+(g.checkedIn?'var(--accent)':'var(--text)')+';">'+(g.checkedIn?'✓ ':'○ ')+g.name+'</div>');
+      var total=1+(parseInt(g.guests)||0);
+      var guestLabel=total>1?' (+'+g.guests+')':'';
+      lines.push('<div style="font-family:var(--font);font-size:18px;font-weight:700;color:'+(g.checkedIn?'var(--accent)':'var(--text)')+';">'+(g.checkedIn?'✓ ':'○ ')+g.name+guestLabel+'</div>');
       if(g.checkedIn&&g.checkedAt) lines.push('<div style="font-family:var(--mono);font-size:11px;color:var(--cyan);margin-top:3px">Entrada: '+g.checkedAt+'</div>');
       if(g.notes) lines.push('<div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:4px;white-space:pre-wrap">'+g.notes+'</div>');
       lines.push('</div>');
