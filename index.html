@@ -1548,7 +1548,7 @@ function _renderAdminHtml() {
           <option value="promoter">Promoter</option>
           <option value="admin">Admin</option>
         </select>
-        <button class="btn-approve" onclick="approveUser('${u.username}',document.getElementById('role-sel-${u.username}').value)">✓</button>
+        <button class="btn-approve" onclick="approveUser('${u.username}', (document.getElementById('role-sel-${u.username}')||{}).value||'door')">✓</button>
         <button class="btn-revoke" style="border-color:rgba(255,59,59,0.4);color:#ef4444" onclick="deleteUser('${u.username}')">🗑</button>
       </div>`).join('');
   }
