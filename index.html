@@ -42,6 +42,7 @@
 </script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -307,8 +308,8 @@ body::before {
       <button class="lang-btn" onclick="setLang('no',this)">NB</button>
     </div>
     <div class="form-row">
-      <label class="form-label">Username</label>
-      <input type="text" class="form-input" id="loginUser" placeholder="your username" />
+      <label class="form-label">Email</label>
+      <input type="email" class="form-input" id="loginUser" placeholder="your email" autocomplete="email" />
     </div>
     <div class="form-row">
       <label class="form-label">Password</label>
@@ -375,37 +376,13 @@ body::before {
   <div class="auth-card">
     <h2>Reset Password</h2>
     <div class="form-row">
-      <label class="form-label">Username</label>
-      <input type="text" class="form-input" id="resetUser" placeholder="your username" />
-    </div>
-    <div class="form-row">
       <label class="form-label">Email</label>
       <input type="email" class="form-input" id="resetEmail" placeholder="your@email.com" />
     </div>
-    <div class="form-row">
-      <label class="form-label">New Password</label>
-      <div style="position:relative">
-        <input type="password" class="form-input" id="resetNewPass" placeholder="••••••••" style="padding-right:3rem" />
-        <button type="button" onclick="togglePassVis('resetNewPass','eyeReset')" style="position:absolute;right:0.75rem;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:0;line-height:1" id="eyeReset">👁</button>
-      </div>
-    </div>
-    <div class="form-row" id="resetStep1Fields">
-      <div style="font-family:'Space Mono',monospace;font-size:0.58rem;color:var(--muted);line-height:1.6">Enter your username and email — we'll send you a 4-digit PIN.</div>
-    </div>
-    <div class="form-row" id="resetStep2Fields" style="display:none">
-      <label class="form-label">4-Digit PIN (check your email)</label>
-      <input type="text" class="form-input" id="resetPinInput" placeholder="0000" maxlength="4" style="letter-spacing:0.3em;font-size:1.2rem;text-align:center" />
-    </div>
-    <div class="form-row" id="resetStep3Fields" style="display:none">
-      <label class="form-label">New Password</label>
-      <div style="position:relative">
-        <input type="password" class="form-input" id="resetNewPass" placeholder="••••••••" style="padding-right:3rem" />
-        <button type="button" onclick="togglePassVis('resetNewPass','eyeReset')" style="position:absolute;right:0.75rem;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:0;line-height:1" id="eyeReset">👁</button>
-      </div>
-    </div>
-    <div class="auth-error" id="resetError">Invalid username or email</div>
-    <div class="auth-success" id="resetSuccess">Password updated! You can now sign in.</div>
-    <button class="btn-primary" style="margin-top:1rem" id="resetBtn" onclick="doResetStep()">SEND PIN →</button>
+    <div style="font-family:'Space Mono',monospace;font-size:0.58rem;color:var(--muted);line-height:1.6;margin-bottom:0.75rem">We'll send a reset link to your email.</div>
+    <div class="auth-error" id="resetError">Email not found</div>
+    <div class="auth-success" id="resetSuccess">Reset link sent! Check your email.</div>
+    <button class="btn-primary" style="margin-top:1rem" onclick="doResetPassword()">SEND RESET LINK →</button>
     <button class="btn-secondary" onclick="showScreen('loginScreen')">← Back to sign in</button>
   </div>
 </div>
@@ -655,9 +632,7 @@ let adminPin = '1234';
 // Local cache of Firebase data
 const events = {};
 const calEvents = {};
-let users = [
-  { username: 'steinerik', password: 'Teniente89', name: 'Stein Erik', role: 'owner', approved: true },
-];
+let users = [];
 let nextUserId = 100;
 let nextGuestId = Date.now(); // use timestamp to avoid collisions across devices
 
@@ -693,7 +668,9 @@ function fbClearCalEvent(dateKey) {
 }
 
 function fbSaveUsers() {
-  db.ref('users').set(users);
+  const obj = {};
+  users.forEach(u => { if (u.uid) obj[u.uid] = { name:u.name, username:u.username, email:u.email||'', role:u.role, approved:u.approved, registeredAt:u.registeredAt||'' }; });
+  db.ref('users').set(obj);
 }
 
 function listenToDate(dateKey) {
@@ -732,8 +709,7 @@ function listenToUsers() {
   db.ref('users').on('value', snap => {
     const val = snap.val();
     if (val) {
-      // Always use Firebase as source of truth
-      users = Array.isArray(val) ? val.filter(Boolean) : Object.values(val).filter(Boolean);
+      users = Object.entries(val).map(([uid, u]) => ({ ...u, uid })).filter(Boolean);
     }
     if (currentUser && document.getElementById('adminScreen').classList.contains('active')) _renderAdminHtml();
   });
@@ -772,17 +748,6 @@ function startListening() {
   });
   window.addEventListener('online',  () => { const d=document.getElementById('connDot'); if(d) d.classList.remove('offline'); });
   window.addEventListener('offline', () => { const d=document.getElementById('connDot'); if(d) d.classList.add('offline'); showToast(lang==='no'?'📴 Offline — viser lagret liste':'📴 Offline — showing cached list'); });
-  // Only push default admins if Firebase has NO users at all
-  db.ref('users').once('value', snap => {
-    const val = snap.val();
-    if (!val) {
-      // First ever run — seed default admins only
-      fbSaveUsers();
-    } else {
-      // Firebase already has users — load them, never overwrite
-      users = Array.isArray(val) ? val : Object.values(val);
-    }
-  });
 }
 
 // ══════════════════════════════════════════
@@ -896,66 +861,66 @@ function showScreen(id) {
 //  AUTH
 // ══════════════════════════════════════════
 function doLogin() {
-  const u = document.getElementById('loginUser').value.trim();
-  const p = document.getElementById('loginPass').value;
+  const email = document.getElementById('loginUser').value.trim();
+  const password = document.getElementById('loginPass').value;
   const err = document.getElementById('loginError');
   err.style.display = 'none';
 
-  // Always fetch latest users from Firebase before login
-  db.ref('users').once('value', snap => {
-    const val = snap.val();
-    if (val) users = Array.isArray(val) ? val : Object.values(val);
-
-    const user = users.find(x => x.username === u && x.password === p);
-    if (!user) {
+  firebase.auth().signInWithEmailAndPassword(email, password)
+    .then(cred => {
+      return db.ref('users/' + cred.user.uid).once('value').then(snap => {
+        const profile = snap.val();
+        if (!profile) {
+          firebase.auth().signOut();
+          err.style.display = 'block';
+          err.textContent = 'Account not found. Contact admin.';
+          return;
+        }
+        if (!profile.approved) {
+          firebase.auth().signOut();
+          showScreen('pendingScreen');
+          return;
+        }
+        currentUser = { ...profile, uid: cred.user.uid };
+        enterApp();
+      });
+    })
+    .catch(() => {
       err.style.display = 'block';
-      err.textContent = lang === 'no' ? 'Feil brukernavn eller passord' : 'Incorrect username or password';
-      return;
-    }
-
-    if (!user.approved) {
-      showScreen('pendingScreen');
-      return;
-    }
-
-    currentUser = user;
-    const remember = document.getElementById('rememberMe') && document.getElementById('rememberMe').checked;
-    const sessionData = { username: user.username, password: user.password, remember };
-    localStorage.setItem('hs_session', JSON.stringify(sessionData));
-    if (remember) {
-      localStorage.setItem('hs_saved_user', user.username);
-      localStorage.setItem('hs_saved_pass', user.password);
-    } else {
-      localStorage.removeItem('hs_saved_user');
-      localStorage.removeItem('hs_saved_pass');
-    }
-    enterApp();
-  });
+      err.textContent = lang === 'no' ? 'Feil e-post eller passord' : 'Incorrect email or password';
+    });
 }
 
 function doRegister() {
   const name = document.getElementById('regName').value.trim();
   const username = document.getElementById('regUser').value.trim();
   const password = document.getElementById('regPass').value;
-  const role = 'door';
+  const email = document.getElementById('regEmail').value.trim();
   const err = document.getElementById('registerError');
   const ok = document.getElementById('registerSuccess');
 
-  if (!name || !username || !password) { return; }
-  if (users.find(u => u.username === username)) {
-    err.style.display = 'block'; ok.style.display = 'none';
-    err.textContent = lang === 'no' ? 'Brukernavn er tatt' : 'Username already taken';
-    return;
-  }
+  if (!name || !username || !email || !password) { return; }
   err.style.display = 'none';
-  const email = document.getElementById('regEmail').value.trim();
+
   const regNow = new Date();
   const regAt = regNow.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) + ' ' + regNow.toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit',year:'2-digit'});
-  const newUser = { username, password, name, role, email, approved: false, id: nextUserId++, registeredAt: regAt };
-  db.ref('users').push(newUser);
-  ok.style.display = 'block';
-  ok.textContent = lang === 'no' ? 'Forespørsel sendt! Vent på admin-godkjenning.' : 'Request sent! Await admin approval.';
-  setTimeout(() => showScreen('loginScreen'), 2000);
+
+  firebase.auth().createUserWithEmailAndPassword(email, password)
+    .then(cred => {
+      const profile = { name, username, email, role: 'door', approved: false, registeredAt: regAt };
+      return db.ref('users/' + cred.user.uid).set(profile).then(() => firebase.auth().signOut());
+    })
+    .then(() => {
+      ok.style.display = 'block';
+      ok.textContent = lang === 'no' ? 'Forespørsel sendt! Vent på godkjenning.' : 'Request sent! Await approval.';
+      setTimeout(() => showScreen('loginScreen'), 2000);
+    })
+    .catch(e => {
+      err.style.display = 'block';
+      err.textContent = e.code === 'auth/email-already-in-use'
+        ? (lang === 'no' ? 'E-post er allerede i bruk' : 'Email already in use')
+        : (e.message || 'Registration failed');
+    });
 }
 
 
@@ -974,9 +939,9 @@ function openMap() {
 }
 
 function doLogout() {
-  try { localStorage.removeItem('hs_currentUser'); localStorage.removeItem('hs_loggedUsername'); } catch(e) {}
+  firebase.auth().signOut();
+  try { localStorage.removeItem('hs_currentUser'); localStorage.removeItem('hs_loggedUsername'); localStorage.removeItem('hs_session'); } catch(e) {}
   currentUser = null;
-  localStorage.removeItem('hs_session');
   document.getElementById('loginUser').value = '';
   document.getElementById('loginPass').value = '';
   showScreen('loginScreen');
@@ -1438,10 +1403,10 @@ function _renderAdminHtml() {
 
 function approveUser(username, role) {
   const u = users.find(x=>x.username===username);
-  if(u) {
+  if(u && u.uid) {
     u.approved = true;
     if (role) u.role = role;
-    fbSaveUsers();
+    db.ref('users/'+u.uid).update({ approved: true, role: u.role });
     renderAdmin();
     logActivity('approved_user', `@${username} as ${u.role}`);
     showToast(`✓ ${u.name} approved as ${u.role}`);
@@ -1449,25 +1414,20 @@ function approveUser(username, role) {
 }
 function revokeUser(username) {
   const u = users.find(x=>x.username===username);
-  if(u) { u.approved=false; fbSaveUsers(); renderAdmin(); showToast(`${u.name} revoked`); }
+  if(u && u.uid) { u.approved=false; db.ref('users/'+u.uid).update({ approved: false }); renderAdmin(); showToast(`${u.name} revoked`); }
 }
 function deleteUser(username) {
   const target = users.find(u=>u.username===username);
-  if (target && (target.role === 'owner')) { showToast('Cannot delete owner account'); return; }
+  if (!target) return;
+  if (target.role === 'owner') { showToast('Cannot delete owner account'); return; }
   if (!confirm(`Delete user @${username} permanently?`)) return;
+  if (target.uid) db.ref('users/'+target.uid).remove();
   users = users.filter(u => u.username !== username);
-  fbSaveUsers();
   renderAdmin();
   showToast(`@${username} deleted`);
 }
 function changePin() {
-  const p = document.getElementById('newPinInput').value.trim();
-  if(!p) return;
-  // Update admin password
-  const admin = users.find(u=>u.role==='admin');
-  if(admin) admin.password = p;
-  document.getElementById('newPinInput').value = '';
-  showToast(lang==='no'?'PIN oppdatert':'PIN updated');
+  // Removed — passwords are now managed by Firebase Auth
 }
 
 // ══════════════════════════════════════════
@@ -1613,98 +1573,22 @@ function togglePassVis(inputId, btnId) {
 // ══════════════════════════════════════════
 //  RESET PASSWORD
 // ══════════════════════════════════════════
-// Reset password state
-let resetStep = 1;
-let resetGeneratedPin = null;
-let resetTargetUser = null;
-
-function doResetStep() {
+function doResetPassword() {
+  const email = document.getElementById('resetEmail').value.trim();
   const err = document.getElementById('resetError');
   const ok  = document.getElementById('resetSuccess');
   err.style.display = 'none'; ok.style.display = 'none';
+  if (!email) return;
 
-  if (resetStep === 1) {
-    // Step 1: verify username + email, send PIN
-    const username = document.getElementById('resetUser').value.trim();
-    const email    = document.getElementById('resetEmail').value.trim().toLowerCase();
-    if (!username || !email) return;
-
-    db.ref('users').once('value', snap => {
-      const val = snap.val();
-      if (val) users = Array.isArray(val) ? val : Object.values(val);
-      const target = users.find(u => u.username === username && u.email && u.email.toLowerCase() === email);
-      if (!target) {
-        err.style.display = 'block';
-        err.textContent = 'Username and email do not match';
-        return;
-      }
-      resetTargetUser = target;
-      resetGeneratedPin = String(Math.floor(1000 + Math.random() * 9000));
-
-      // Send PIN via EmailJS
-      if (typeof emailjs !== 'undefined') {
-        emailjs.send('service_t97r5qz', 'template_22f606h', {
-          email: target.email,
-          to_name: target.name,
-          pin_code: resetGeneratedPin,
-          app_name: 'Håndslag'
-        }).then(() => {
-          console.log('PIN sent');
-        }).catch(e => console.error('EmailJS error:', e));
-      } else {
-        // EmailJS not configured yet — show PIN on screen for testing
-        ok.style.display = 'block';
-        ok.textContent = 'TEST MODE — PIN: ' + resetGeneratedPin;
-      }
-
-      // Move to step 2
-      resetStep = 2;
-      document.getElementById('resetStep1Fields').style.display = 'none';
-      document.getElementById('resetStep2Fields').style.display = 'block';
-      document.getElementById('resetUser').closest('.form-row').style.display = 'none';
-      document.getElementById('resetEmail').closest('.form-row').style.display = 'none';
-      document.getElementById('resetBtn').textContent = 'VERIFY PIN →';
-      if (typeof emailjs !== 'undefined') {
-        ok.style.display = 'block';
-        ok.textContent = 'PIN sent to ' + target.email;
-      }
+  firebase.auth().sendPasswordResetEmail(email)
+    .then(() => {
+      ok.style.display = 'block';
+      ok.textContent = 'Reset link sent! Check your email.';
+    })
+    .catch(() => {
+      err.style.display = 'block';
+      err.textContent = 'Email not found';
     });
-
-  } else if (resetStep === 2) {
-    // Step 2: verify PIN
-    const enteredPin = document.getElementById('resetPinInput').value.trim();
-    if (enteredPin !== resetGeneratedPin) {
-      err.style.display = 'block';
-      err.textContent = 'Incorrect PIN — try again';
-      return;
-    }
-    resetStep = 3;
-    document.getElementById('resetStep2Fields').style.display = 'none';
-    document.getElementById('resetStep3Fields').style.display = 'block';
-    document.getElementById('resetBtn').textContent = 'SET NEW PASSWORD →';
-    ok.style.display = 'none';
-
-  } else if (resetStep === 3) {
-    // Step 3: set new password
-    const newPass = document.getElementById('resetNewPass').value;
-    if (!newPass || newPass.length < 4) {
-      err.style.display = 'block';
-      err.textContent = 'Password must be at least 4 characters';
-      return;
-    }
-    resetTargetUser.password = newPass;
-    db.ref('users').set(users);
-
-    const saved = localStorage.getItem('hs_saved_user');
-    if (saved === resetTargetUser.username) {
-      localStorage.setItem('hs_saved_pass', newPass);
-    }
-
-    ok.style.display = 'block';
-    ok.textContent = 'Password updated! You can now sign in.';
-    resetStep = 1; resetGeneratedPin = null; resetTargetUser = null;
-    setTimeout(() => showScreen('loginScreen'), 2000);
-  }
 }
 
 // ══════════════════════════════════════════
@@ -1782,34 +1666,18 @@ window.addEventListener('load', () => {
     });
   }
   applyAppLang();
-  // Pre-fill saved credentials
-  const savedUser = localStorage.getItem('hs_saved_user');
-  const savedPass = localStorage.getItem('hs_saved_pass');
-  if (savedUser) {
-    document.getElementById('loginUser').value = savedUser;
-    document.getElementById('loginPass').value = savedPass || '';
-    document.getElementById('rememberMe').checked = true;
-  }
-  // Auto-login from session — fetch from Firebase first
-  const saved = localStorage.getItem('hs_session');
-  if (saved) {
-    try {
-      const { username, password } = JSON.parse(saved);
-      db.ref('users').once('value', snap => {
-        const val = snap.val();
-        if (val) users = Array.isArray(val) ? val : Object.values(val);
-        const user = users.find(u => u.username === username && u.password === password);
-        if (user && user.approved) {
-          currentUser = user;
+  // Auto-login via Firebase Auth session
+  firebase.auth().onAuthStateChanged(fbUser => {
+    if (fbUser && !currentUser) {
+      db.ref('users/' + fbUser.uid).once('value').then(snap => {
+        const profile = snap.val();
+        if (profile && profile.approved) {
+          currentUser = { ...profile, uid: fbUser.uid };
           enterApp();
-        } else {
-          localStorage.removeItem('hs_session');
         }
       });
-    } catch(e) {
-      localStorage.removeItem('hs_session');
     }
-  }
+  });
 });
 
 // ENTER key
