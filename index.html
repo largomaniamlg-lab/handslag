@@ -558,6 +558,16 @@ body::before {
       <label class="form-label">Capacity</label>
       <input type="number" class="form-input" id="inputCapacity" value="6" min="1" max="50" />
     </div>
+    <div class="form-row" id="tableTimeWrap" style="display:none;gap:8px">
+      <div style="flex:1">
+        <label class="form-label">Desde</label>
+        <input type="time" class="form-input" id="inputTimeFrom" />
+      </div>
+      <div style="flex:1">
+        <label class="form-label">Hasta</label>
+        <input type="time" class="form-input" id="inputTimeTo" />
+      </div>
+    </div>
     <div class="form-row">
       <label class="form-label" id="lbl-promoter">Promoter</label>
       <input type="text" class="form-input" id="inputPromoter" placeholder="Promoter name" autocomplete="off" />
@@ -1180,10 +1190,13 @@ function openModal() {
   const titles = { en:{guestlist:'ADD TO GUESTLIST',vip:'ADD VIP GUEST',tables:'ADD TABLE'}, no:{guestlist:'LEGG TIL GJESTELISTE',vip:'LEGG TIL VIP-GJEST',tables:'LEGG TIL BORD'} };
   document.getElementById('modal-title').textContent = (titles[lang]||titles.en)[currentCategory];
   document.getElementById('tableCapacityWrap').style.display = isTables ? 'block' : 'none';
+  document.getElementById('tableTimeWrap').style.display = isTables ? 'flex' : 'none';
   document.getElementById('inputName').value = '';
   document.getElementById('inputGuests').value = '';
   document.getElementById('inputTable').value = '';
   document.getElementById('inputCapacity').value = '6';
+  document.getElementById('inputTimeFrom').value = '';
+  document.getElementById('inputTimeTo').value = '';
   document.getElementById('inputPromoter').value = currentUser ? currentUser.name : '';
   document.getElementById('modalOverlay').classList.add('open');
   setTimeout(()=>document.getElementById('inputName').focus(),100);
@@ -1199,6 +1212,8 @@ function saveGuest() {
     id: nextGuestId++, name,
     table: document.getElementById('inputTable').value.trim(),
     capacity: currentCategory==='tables' ? parseInt(document.getElementById('inputCapacity').value)||6 : 0,
+    timeFrom: currentCategory==='tables' ? document.getElementById('inputTimeFrom').value : '',
+    timeTo: currentCategory==='tables' ? document.getElementById('inputTimeTo').value : '',
     promoter: document.getElementById('inputPromoter').value,
     guests: parseInt(document.getElementById("inputGuests").value) || 0,
     checkedIn: false, checkedAt: '',
