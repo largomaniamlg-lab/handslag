@@ -1581,6 +1581,7 @@ function _renderAdminHtml() {
 
 function approveUser(username, role) {
   const u = users.find(x=>x.username===username);
+  showToast('DEBUG: u=' + (u?u.name:'NOT FOUND') + ' uid=' + (u?u.uid:'none'));
   if(u && u.uid) {
     u.approved = true;
     if (role) u.role = role;
