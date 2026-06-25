@@ -77,9 +77,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     <div id="sync-dot"></div>
   </div>
   <div id="modebar">
-    <button class="mbtn active" id="btn-view" onclick="setMode('view')">👁 Ver</button>
-    <span id="hint">Toca una mesa</span>
-    <button class="mbtn" id="btn-edit" onclick="setMode('edit')" style="display:none">✏️ Editar</button>
+    <span id="hint" style="flex:1;text-align:center">Toca una mesa</span>
   </div>
   <div id="wrap">
     <div id="fp-box">
@@ -108,14 +106,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
         <rect x="384" y="436" width="86" height="150" rx="6" fill="#33312c"/>
         <text transform="rotate(-90 427 511)" x="427" y="511" text-anchor="middle" dominant-baseline="middle" font-size="18" letter-spacing="4" fill="#f3efe6">BACK BAR</text>
         <!-- ── DANCEFLOOR LABEL ── -->
-        <text x="182" y="906" text-anchor="middle" font-size="18" letter-spacing="5" fill="#b08a55">DANCEFLOOR</text>
+        <text x="182" y="845" text-anchor="middle" font-size="14" letter-spacing="4" fill="#b08a55">DANCEFLOOR</text>
         <!-- ── TABLES (rendered by JS) ── -->
         <g id="tables-layer"></g>
-        <!-- ── EDIT GRID (shown in edit mode) ── -->
-        <g id="edit-grid" display="none" opacity="0.12">
-          <defs><pattern id="grid40" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse"><circle cx="20" cy="20" r="1.5" fill="#33312c"/></pattern></defs>
-          <rect x="40" y="100" width="680" height="920" fill="url(#grid40)"/>
-        </g>
       </svg>
     </div>
   </div>
@@ -128,28 +121,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   <div class="sh-handle"></div>
   <div class="sh-name" id="info-name"></div>
   <div class="sh-sub" id="info-sub"></div>
-  <div id="info-time" style="font-family:var(--mono);font-size:13px;color:var(--cyan);margin:4px 0 2px;display:none"></div>
-  <div id="info-count" style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:12px"></div>
-  <div style="font-family:var(--mono);font-size:12px;color:var(--text);line-height:2;white-space:pre-wrap" id="info-guests"></div>
+  <div id="info-time" style="font-family:var(--mono);font-size:13px;color:var(--cyan);margin:6px 0 4px;display:none"></div>
+  <div id="info-count" style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:14px"></div>
+  <div id="info-guests"></div>
 </div>
 
-<!-- Edit sheet -->
-<div id="edit-overlay" onclick="closeEdit()"></div>
-<div id="edit-sheet">
-  <div class="sh-handle"></div>
-  <span class="es-lbl">Número / Nombre</span>
-  <input class="es-inp" id="es-name" type="text" inputmode="text" placeholder="Ej: 5, VIP1..."/>
-  <span class="es-lbl">Zona / Descripción</span>
-  <input class="es-inp" id="es-sub" type="text" inputmode="text" placeholder="Ej: Kaffe, VIP..." style="font-size:16px;padding:10px 14px;"/>
-  <span class="es-lbl">Hora inicio</span>
-  <input class="es-inp" id="es-from" type="time" style="font-size:18px;padding:10px 14px;"/>
-  <span class="es-lbl">Hora fin</span>
-  <input class="es-inp" id="es-to" type="time" style="font-size:18px;padding:10px 14px;"/>
-  <button class="btn-done" onclick="closeEdit()">✓ Guardar</button>
-  <button class="btn-del" onclick="deleteSel()">🗑 Eliminar mesa</button>
-</div>
-
-<button id="add-btn" onclick="addTable()">+</button>
 <div id="toast"></div>
 
 <script>
@@ -180,7 +156,7 @@ const DEFAULT_TABLES=[
   {id:19,name:'19',sub:'',type:'circle',cx:636,cy:608,r:30},
 ];
 
-let tables=[],selected=null,mode='view',isAdmin=false,nextId=200,tableStats={};
+let tables=[],tableStats={},nextId=200;
 
 function checkAuth(){
   var user=null;
@@ -194,10 +170,8 @@ function checkAuth(){
   grantAccess(user);
 }
 function grantAccess(user){
-  isAdmin=(user.role==='admin');
   document.getElementById('lock').style.display='none';
   document.getElementById('app').style.display='flex';
-  if(isAdmin)document.getElementById('btn-edit').style.display='block';
   tables=DEFAULT_TABLES.map(function(t){return Object.assign({},t);});
   render();
   loadTableStats();
@@ -267,7 +241,7 @@ function render(){
   while(layer.firstChild)layer.removeChild(layer.firstChild);
   tables.forEach(function(t){
     var g=document.createElementNS(NS,'g');
-    g.setAttribute('class','tbl-g'+(selected===t?' selected':''));
+    g.setAttribute('class','tbl-g');
     g.setAttribute('data-id',t.id);
 
     var stat=tableStats[String(t.name).toLowerCase()];
@@ -307,60 +281,11 @@ function render(){
       g.appendChild(sub);
     }
 
-    g.addEventListener('click',function(e){e.stopPropagation();onTableClick(t);});
+    g.addEventListener('click',function(e){e.stopPropagation();openInfo(t);});
     layer.appendChild(g);
   });
 }
 
-// SVG coordinate conversion
-function svgCoords(e){
-  var svg=document.getElementById('fp');
-  var pt=svg.createSVGPoint();
-  var src=e.changedTouches?e.changedTouches[0]:e;
-  pt.x=src.clientX; pt.y=src.clientY;
-  return pt.matrixTransform(svg.getScreenCTM().inverse());
-}
-
-// Click on SVG background → move selected table
-document.getElementById('fp').addEventListener('click',function(e){
-  if(mode!=='edit'||!selected)return;
-  if(e.target.closest('.tbl-g'))return;
-  var pt=svgCoords(e);
-  var snap=40;
-  if(selected.type==='circle'){
-    selected.cx=Math.round(pt.x/snap)*snap;
-    selected.cy=Math.round(pt.y/snap)*snap;
-  } else {
-    var w=selected.w||72,h=selected.h||72;
-    selected.x=Math.round((pt.x-w/2)/snap)*snap;
-    selected.y=Math.round((pt.y-h/2)/snap)*snap;
-  }
-  saveTables();
-  selected=null;
-  document.getElementById('hint').textContent='Toca una mesa para editarla';
-  render();
-});
-
-function onTableClick(t){
-  if(mode==='view'){openInfo(t);return;}
-  if(selected===t){openEdit(t);}
-  else{
-    selected=t;
-    document.getElementById('hint').textContent='Toca el plano para moverla, o de nuevo para editar';
-    render();
-  }
-}
-
-function setMode(m){
-  if(m==='edit'&&!isAdmin)return;
-  mode=m; selected=null;
-  document.getElementById('btn-view').className='mbtn'+(m==='view'?' active':'');
-  document.getElementById('btn-edit').className='mbtn'+(m==='edit'?' active-edit':'');
-  document.getElementById('hint').textContent=m==='view'?'Toca una mesa':'Toca una mesa para editarla';
-  document.getElementById('add-btn').className=m==='edit'?'show':'';
-  document.getElementById('edit-grid').setAttribute('display',m==='edit'?'block':'none');
-  render();
-}
 
 function openInfo(t){
   document.getElementById('info-name').textContent=t.name;
@@ -371,7 +296,7 @@ function openInfo(t){
   var stat=tableStats[String(t.name).toLowerCase()];
   document.getElementById('info-count').textContent=stat?stat.count+' persona'+(stat.count!==1?'s':'')+' asignadas':'';
   var el=document.getElementById('info-guests');
-  el.textContent='Cargando...';
+  el.innerHTML='<span style="font-family:var(--mono);font-size:11px;color:var(--muted)">Cargando...</span>';
   var today=new Date().toISOString().slice(0,10);
   db.ref('events/'+today).once('value',function(snap){
     var all=snap.val()||{};var guests=[];
@@ -379,10 +304,19 @@ function openInfo(t){
       var list=Array.isArray(cat)?cat:Object.values(cat);
       list.forEach(function(g){
         if(g&&g.table&&String(g.table).toLowerCase()===String(t.name).toLowerCase())
-          guests.push((g.checkedIn?'✓ ':'○ ')+g.name);
+          guests.push(g);
       });
     });
-    el.textContent=guests.length?guests.join('\n'):'Sin invitados asignados';
+    if(!guests.length){el.innerHTML='<span style="font-family:var(--mono);font-size:12px;color:var(--muted)">Sin invitados asignados</span>';return;}
+    el.innerHTML=guests.map(function(g){
+      var lines=[];
+      lines.push('<div style="border-bottom:1px solid rgba(255,255,255,0.06);padding:10px 0;">');
+      lines.push('<div style="font-family:var(--font);font-size:18px;font-weight:700;color:'+(g.checkedIn?'var(--accent)':'var(--text)')+';">'+(g.checkedIn?'✓ ':'○ ')+g.name+'</div>');
+      if(g.checkedIn&&g.checkedAt) lines.push('<div style="font-family:var(--mono);font-size:11px;color:var(--cyan);margin-top:3px">Entrada: '+g.checkedAt+'</div>');
+      if(g.notes) lines.push('<div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:4px;white-space:pre-wrap">'+g.notes+'</div>');
+      lines.push('</div>');
+      return lines.join('');
+    }).join('');
   });
   document.getElementById('info-overlay').classList.add('open');
   document.getElementById('info-sheet').classList.add('open');
@@ -392,42 +326,6 @@ function closeInfo(){
   document.getElementById('info-sheet').classList.remove('open');
 }
 
-function openEdit(t){
-  selected=t;
-  document.getElementById('es-name').value=t.name;
-  document.getElementById('es-sub').value=t.sub||'';
-  document.getElementById('es-from').value=t.timeFrom||'';
-  document.getElementById('es-to').value=t.timeTo||'';
-  document.getElementById('edit-overlay').classList.add('open');
-  document.getElementById('edit-sheet').classList.add('open');
-  setTimeout(function(){document.getElementById('es-name').select();},250);
-}
-function closeEdit(){
-  if(selected){
-    selected.name=document.getElementById('es-name').value||selected.name;
-    selected.sub=document.getElementById('es-sub').value;
-    selected.timeFrom=document.getElementById('es-from').value;
-    selected.timeTo=document.getElementById('es-to').value;
-    saveTables();
-  }
-  document.getElementById('edit-overlay').classList.remove('open');
-  document.getElementById('edit-sheet').classList.remove('open');
-  selected=null; render();
-}
-document.getElementById('edit-overlay').addEventListener('click',closeEdit);
-
-function deleteSel(){
-  if(!selected)return;
-  if(!confirm('Eliminar "'+selected.name+'"?'))return;
-  tables=tables.filter(function(t){return t!==selected;});
-  selected=null; saveTables(); render();
-  document.getElementById('edit-overlay').classList.remove('open');
-  document.getElementById('edit-sheet').classList.remove('open');
-}
-function addTable(){
-  var t={id:nextId++,name:String(tables.length+1),sub:'',type:'circle',cx:720,cy:550,r:37};
-  tables.push(t); saveTables(); render(); openEdit(t);
-}
 function toast(msg){var el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(function(){el.classList.remove('show');},2200);}
 
 checkAuth();
