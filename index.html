@@ -359,14 +359,6 @@ body::before {
         <button type="button" onclick="togglePassVis('regPass','eyeReg')" style="position:absolute;right:0.75rem;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:0;line-height:1" id="eyeReg">👁</button>
       </div>
     </div>
-    <div class="form-row">
-      <label class="form-label" id="lbl-reg-role">Role</label>
-      <select class="form-select" id="regRole">
-        <option value="door">Door Staff / Dørpersonell</option>
-        <option value="promoter">Promoter</option>
-        <option value="bar">Bar / Security</option>
-      </select>
-    </div>
     <div class="auth-error" id="registerError">Username already taken</div>
     <div class="auth-success" id="registerSuccess">Request sent! Await admin approval.</div>
     <button class="btn-primary" style="margin-top:1rem" onclick="doRegister()" id="btn-register">SEND REQUEST →</button>
@@ -521,6 +513,13 @@ body::before {
 <div id="adminScreen" class="screen">
   <div class="admin-title" id="lbl-admin-title">ADMIN PANEL</div>
   <div id="adminUserList"></div>
+  <div id="activityLogWrap" style="display:none;margin-top:1.5rem">
+    <div class="section-label" style="display:flex;justify-content:space-between;align-items:center">
+      <span>📋 Activity Log</span>
+      <button onclick="clearActivityLog()" style="font-size:0.65rem;padding:2px 8px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer">Clear</button>
+    </div>
+    <div id="activityLogList" style="margin-top:0.5rem;max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:0.3rem"></div>
+  </div>
   <div style="margin-top:1.5rem">
     <div class="section-label" id="lbl-admin-pin">Change Admin PIN</div>
     <div style="display:flex;gap:0.6rem;margin-top:0.25rem">
@@ -664,7 +663,7 @@ let adminPin = '1234';
 const events = {};
 const calEvents = {};
 let users = [
-  { username: 'steinerik', password: 'Teniente89', name: 'Stein Erik', role: 'admin', approved: true },
+  { username: 'steinerik', password: 'Teniente89', name: 'Stein Erik', role: 'owner', approved: true },
 ];
 let nextUserId = 100;
 let nextGuestId = Date.now(); // use timestamp to avoid collisions across devices
@@ -747,9 +746,33 @@ function listenToUsers() {
   });
 }
 
+function listenToActivityLog() {
+  db.ref('activityLog').limitToLast(50).on('value', snap => {
+    const f = window._roleFlags || {};
+    if (!f.isOwner) return;
+    const val = snap.val() || {};
+    const entries = Object.values(val).reverse();
+    const el = document.getElementById('activityLogList');
+    if (!el) return;
+    if (!entries.length) { el.innerHTML = '<div style="color:var(--muted);font-size:0.7rem;text-align:center;padding:1rem">No activity yet</div>'; return; }
+    el.innerHTML = entries.map(e => `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.6rem;font-size:0.68rem;line-height:1.4">
+        <span style="color:var(--accent);font-weight:700">${e.user}</span>
+        <span style="color:var(--muted)"> · ${e.at}</span><br>
+        <span style="color:var(--text)">${e.action.replace(/_/g,' ')} — ${e.details}</span>
+      </div>`).join('');
+  });
+}
+
+function clearActivityLog() {
+  if (!confirm('Clear all activity log?')) return;
+  db.ref('activityLog').remove();
+}
+
 function startListening() {
   listenToCalEvents();
   listenToUsers();
+  listenToActivityLog();
   db.ref('.info/connected').on('value', snap => {
     const dot = document.getElementById('connDot');
     if (dot) dot.classList.toggle('offline', snap.val() !== true);
@@ -921,7 +944,7 @@ function doRegister() {
   const name = document.getElementById('regName').value.trim();
   const username = document.getElementById('regUser').value.trim();
   const password = document.getElementById('regPass').value;
-  const role = document.getElementById('regRole').value;
+  const role = 'door';
   const err = document.getElementById('registerError');
   const ok = document.getElementById('registerSuccess');
 
@@ -975,13 +998,28 @@ function enterApp() {
     localStorage.setItem('hs_currentUser', JSON.stringify(currentUser));
     localStorage.setItem('hs_loggedUsername', currentUser.username);
   } catch(e) {}
-  // Show admin nav if admin
-  const isAdmin = currentUser.role === 'admin';
-  const isBar = currentUser.role === 'bar';
+  // Role flags
+  const isOwner    = currentUser.role === 'owner';
+  const isAdmin    = isOwner || currentUser.role === 'admin';
+  const isPromoter = currentUser.role === 'promoter';
+  const isDoor     = currentUser.role === 'door' || currentUser.role === 'bar';
+  window._roleFlags = { isOwner, isAdmin, isPromoter, isDoor };
+
   document.getElementById('adminNavBtn').style.display = isAdmin ? 'flex' : 'none';
   document.getElementById('adminNavBtn3').style.display = isAdmin ? 'flex' : 'none';
+
   const mainEl2 = document.getElementById('mainScreen');
-  if (mainEl2) { if (isBar) mainEl2.classList.add('readonly-mode'); else mainEl2.classList.remove('readonly-mode'); }
+  if (mainEl2) {
+    if (isDoor) mainEl2.classList.add('readonly-mode'); else mainEl2.classList.remove('readonly-mode');
+  }
+
+  // VIP tab: only owner and admin
+  const vipTab = document.querySelector('.filter-tabs .tab[onclick*="vip"]');
+  if (vipTab) vipTab.style.display = (isOwner || isAdmin) ? '' : 'none';
+
+  // Add button: hidden for door
+  const addBtn = document.querySelector('.btn-add');
+  if (addBtn) addBtn.style.display = isDoor ? 'none' : '';
 
   // Sync topbar lang toggle
   const enBtn = document.getElementById('appLangEn');
@@ -1129,7 +1167,7 @@ function renderList() {
       </div>
       <div class="guest-actions">
         <button class="btn-checkin ${g.checkedIn?'in':'out'}" onclick="toggleCheckin(${g.id})">${g.checkedIn?tx('checkin'):tx('checkout')}</button>
-        <button class="btn-delete" onclick="deleteGuest(${g.id})">✕</button>
+        ${canEditGuest(g) ? `<button class="btn-delete" onclick="deleteGuest(${g.id})">✕</button>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -1144,6 +1182,7 @@ function toggleCheckin(id) {
   g.checkedIn = !g.checkedIn;
   g.checkedAt = g.checkedIn ? new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : '';
   fbUpdateGuest(currentEvent, currentCategory, g);
+  logActivity(g.checkedIn ? 'checkin' : 'checkout', g.name);
   showToast(g.checkedIn ? `${tx('toastIn')}: ${g.name}` : `${tx('toastOut')}: ${g.name}`);
   renderList();
 }
@@ -1163,11 +1202,33 @@ function showConfirm(msg, onYes) {
 function closeConfirm() { document.getElementById('confirmOverlay').style.display='none'; _confirmCb=null; }
 function confirmAction() { const cb = _confirmCb; closeConfirm(); if(cb) cb(); }
 
+function canEditGuest(g) {
+  if (!currentUser) return false;
+  const f = window._roleFlags || {};
+  if (f.isDoor) return false;
+  if (f.isAdmin) return true;
+  if (f.isPromoter) return g.addedBy === currentUser.name;
+  return true;
+}
+
+function logActivity(action, details) {
+  if (!currentUser) return;
+  db.ref('activityLog').push({
+    user: currentUser.name,
+    username: currentUser.username,
+    action,
+    details,
+    at: new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) + ' ' + new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit',year:'2-digit'})
+  });
+}
+
 function deleteGuest(id) {
   const L = T[lang]||T.en;
   showConfirm(L.deleteConfirm||'Delete this guest?', () => {
+    const g = guests().find(x=>x.id===id);
     fbDeleteGuest(currentEvent, currentCategory, id);
     getOrCreateEvent(currentEvent)[currentCategory] = getOrCreateEvent(currentEvent)[currentCategory].filter(x=>x.id!==id);
+    if (g) logActivity('deleted_guest', `${g.name} (${currentCategory})`);
     showToast(tx('toastDeleted')); renderList();
   });
 }
@@ -1255,6 +1316,7 @@ function saveGuest() {
   if (!currentEvent) { showToast('Select a date first'); return; }
   getOrCreateEvent(currentEvent)[currentCategory].unshift(g);
   fbSaveGuest(currentEvent, currentCategory, g);
+  logActivity('added_guest', `${g.name} → ${currentCategory}`);
   closeModal();
   showToast(`${tx('toastAdded')}: ${g.name}`);
   renderList();
@@ -1314,21 +1376,25 @@ function renderAdmin() {
 }
 
 function _renderAdminHtml() {
-  const admins  = users.filter(u => u.role === 'admin');
-  const pending  = users.filter(u => !u.approved && u.role !== 'admin');
-  const approved = users.filter(u => u.approved && u.role !== 'admin');
+  const f = window._roleFlags || {};
+  const showRoles = f.isOwner;
+  const privileged = users.filter(u => u.role === 'owner' || u.role === 'admin');
+  const pending  = users.filter(u => !u.approved && u.role !== 'owner' && u.role !== 'admin');
+  const approved = users.filter(u => u.approved && u.role !== 'owner' && u.role !== 'admin');
   let html = '';
 
-  // ADMINS
-  if (admins.length) {
-    html += `<div class="section-label">👑 ${lang==='no'?'Administratorer':'Admins'} (${admins.length})</div>`;
-    html += admins.map(u => `
+  const roleLabel = r => ({owner:'Owner',admin:'Admin',promoter:'Promoter',door:'Door',bar:'Bar'}[r]||r);
+
+  // PRIVILEGED (owner/admin)
+  if (privileged.length) {
+    html += `<div class="section-label">👑 ${lang==='no'?'Administratorer':'Admins'} (${privileged.length})</div>`;
+    html += privileged.map(u => `
       <div class="user-item" style="border-color:rgba(180,79,255,0.2)">
         <div class="user-info">
           <div class="user-name-label">${u.name}</div>
-          <div class="user-role-label">@${u.username} · admin${u.registeredAt ? ' · ' + u.registeredAt : ''}</div>
+          <div class="user-role-label">@${u.username}${showRoles?' · '+roleLabel(u.role):''}${u.registeredAt ? ' · ' + u.registeredAt : ''}</div>
         </div>
-        <span class="user-status approved" style="border-color:rgba(180,79,255,0.5)">Admin</span>
+        <span class="user-status approved" style="border-color:rgba(180,79,255,0.5)">${showRoles?roleLabel(u.role):'Staff'}</span>
       </div>`).join('');
   }
 
@@ -1336,14 +1402,18 @@ function _renderAdminHtml() {
   if (pending.length) {
     html += `<div class="section-label" style="margin-top:1rem">⏳ ${lang==='no'?'Venter på godkjenning':'Pending approval'} (${pending.length})</div>`;
     html += pending.map(u => `
-      <div class="user-item">
-        <div class="user-info">
+      <div class="user-item" style="flex-wrap:wrap;gap:0.4rem">
+        <div class="user-info" style="flex:1;min-width:0">
           <div class="user-name-label">${u.name}</div>
-          <div class="user-role-label">@${u.username} · ${u.role}${u.registeredAt ? ' · ' + u.registeredAt : ''}</div>
+          <div class="user-role-label">@${u.username}${u.registeredAt ? ' · ' + u.registeredAt : ''}</div>
         </div>
-        <span class="user-status pending">${lang==='no'?'Venter':'Pending'}</span>
-        <button class="btn-approve" onclick="approveUser('${u.username}')">✓</button>
-        <button class="btn-revoke" style="border-color:rgba(255,59,59,0.4);color:#ef4444;margin-left:0.25rem" onclick="deleteUser('${u.username}')">🗑</button>
+        <select id="role-sel-${u.username}" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:0.75rem;flex-shrink:0">
+          <option value="door">Door</option>
+          <option value="promoter">Promoter</option>
+          <option value="admin">Admin</option>
+        </select>
+        <button class="btn-approve" onclick="approveUser('${u.username}',document.getElementById('role-sel-${u.username}').value)">✓</button>
+        <button class="btn-revoke" style="border-color:rgba(255,59,59,0.4);color:#ef4444" onclick="deleteUser('${u.username}')">🗑</button>
       </div>`).join('');
   }
 
@@ -1354,35 +1424,43 @@ function _renderAdminHtml() {
       <div class="user-item">
         <div class="user-info">
           <div class="user-name-label">${u.name}</div>
-          <div class="user-role-label">@${u.username} · ${u.role}${u.registeredAt ? ' · ' + u.registeredAt : ''}</div>
+          <div class="user-role-label">@${u.username}${showRoles?' · '+roleLabel(u.role):''}${u.registeredAt ? ' · ' + u.registeredAt : ''}</div>
         </div>
-        <span class="user-status approved">${lang==='no'?'Aktiv':'Active'}</span>
-        <button class="btn-revoke" onclick="revokeUser('${u.username}')" style="margin-right:0.25rem" title="Suspend">⏸</button>
+        <span class="user-status approved">${showRoles?roleLabel(u.role):'Active'}</span>
+        ${showRoles ? `<button class="btn-revoke" onclick="revokeUser('${u.username}')" style="margin-right:0.25rem" title="Suspend">⏸</button>` : ''}
         <button class="btn-revoke" style="border-color:rgba(255,59,59,0.4);color:#ef4444" onclick="deleteUser('${u.username}')" title="Delete">🗑</button>
       </div>`).join('');
   }
 
-  // SUSPENDED
-  const suspended = users.filter(u => !u.approved && u.role === 'door' || !u.approved && u.role === 'promoter');
-  // (already covered in pending above if not approved)
-
-  if (!admins.length && !pending.length && !approved.length) {
+  if (!privileged.length && !pending.length && !approved.length) {
     html = `<div class="empty-state"><div class="empty-icon">👥</div><p>${lang==='no'?'Ingen brukere ennå':'No users yet'}</p></div>`;
   }
 
   document.getElementById('adminUserList').innerHTML = html;
+
+  // Activity log — owner only
+  const logWrap = document.getElementById('activityLogWrap');
+  if (logWrap) logWrap.style.display = f.isOwner ? '' : 'none';
 }
 
-function approveUser(username) {
+function approveUser(username, role) {
   const u = users.find(x=>x.username===username);
-  if(u) { u.approved=true; fbSaveUsers(); renderAdmin(); showToast(`✓ ${u.name} approved`); }
+  if(u) {
+    u.approved = true;
+    if (role) u.role = role;
+    fbSaveUsers();
+    renderAdmin();
+    logActivity('approved_user', `@${username} as ${u.role}`);
+    showToast(`✓ ${u.name} approved as ${u.role}`);
+  }
 }
 function revokeUser(username) {
   const u = users.find(x=>x.username===username);
   if(u) { u.approved=false; fbSaveUsers(); renderAdmin(); showToast(`${u.name} revoked`); }
 }
 function deleteUser(username) {
-  if (username === 'admin' || username === 'steinerik') { showToast('Cannot delete admin'); return; }
+  const target = users.find(u=>u.username===username);
+  if (target && (target.role === 'owner')) { showToast('Cannot delete owner account'); return; }
   if (!confirm(`Delete user @${username} permanently?`)) return;
   users = users.filter(u => u.username !== username);
   fbSaveUsers();
