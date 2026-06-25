@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -1584,10 +1584,9 @@ function approveUser(username, role) {
   if(u && u.uid) {
     u.approved = true;
     if (role) u.role = role;
-    db.ref('users/'+u.uid).update({ approved: true, role: u.role });
-    renderAdmin();
-    logActivity('approved_user', `@${username} as ${u.role}`);
-    showToast(`✓ ${u.name} approved as ${u.role}`);
+    db.ref('users/'+u.uid).update({ approved: true, role: u.role })
+      .then(() => { renderAdmin(); logActivity('approved_user', `@${username} as ${u.role}`); showToast(`✓ ${u.name} approved`); })
+      .catch(e => showToast('Error: ' + (e.message || e.code)));
   }
 }
 function revokeUser(username) {
