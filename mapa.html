@@ -30,7 +30,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .mbtn.active{background:rgba(180,79,255,0.2);border-color:var(--accent);color:var(--accent);font-weight:700;}
 .mbtn.active-edit{background:rgba(6,200,232,0.15);border-color:var(--cyan);color:var(--cyan);font-weight:700;}
 #hint{font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center;flex:2;}
-#wrap{flex:1;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#e9e3d7;padding:8px;}
+#wrap{flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;background:#e9e3d7;padding:8px;}
 #fp-box{background:#fff;border-radius:6px;box-shadow:0 4px 24px rgba(0,0,0,0.18);overflow:hidden;max-width:100%;max-height:100%;}
 #fp{display:block;font-family:'Space Mono',monospace;}
 /* SVG table styles */
@@ -128,7 +128,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   <div class="sh-handle"></div>
   <div class="sh-name" id="info-name"></div>
   <div class="sh-sub" id="info-sub"></div>
-  <div style="margin-top:14px;font-family:var(--mono);font-size:12px;color:var(--text);line-height:2;white-space:pre-wrap" id="info-guests"></div>
+  <div id="info-time" style="font-family:var(--mono);font-size:13px;color:var(--cyan);margin:4px 0 2px;display:none"></div>
+  <div id="info-count" style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:12px"></div>
+  <div style="font-family:var(--mono);font-size:12px;color:var(--text);line-height:2;white-space:pre-wrap" id="info-guests"></div>
 </div>
 
 <!-- Edit sheet -->
@@ -139,6 +141,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   <input class="es-inp" id="es-name" type="text" inputmode="text" placeholder="Ej: 5, VIP1..."/>
   <span class="es-lbl">Zona / Descripción</span>
   <input class="es-inp" id="es-sub" type="text" inputmode="text" placeholder="Ej: Kaffe, VIP..." style="font-size:16px;padding:10px 14px;"/>
+  <span class="es-lbl">Hora inicio</span>
+  <input class="es-inp" id="es-from" type="time" style="font-size:18px;padding:10px 14px;"/>
+  <span class="es-lbl">Hora fin</span>
+  <input class="es-inp" id="es-to" type="time" style="font-size:18px;padding:10px 14px;"/>
   <button class="btn-done" onclick="closeEdit()">✓ Guardar</button>
   <button class="btn-del" onclick="deleteSel()">🗑 Eliminar mesa</button>
 </div>
@@ -174,7 +180,7 @@ const DEFAULT_TABLES=[
   {id:19,name:'19',sub:'',type:'circle',cx:636,cy:608,r:30},
 ];
 
-let tables=[],selected=null,mode='view',isAdmin=false,nextId=200;
+let tables=[],selected=null,mode='view',isAdmin=false,nextId=200,tableStats={};
 
 function checkAuth(){
   var user=null;
@@ -194,9 +200,9 @@ function grantAccess(user){
   if(isAdmin)document.getElementById('btn-edit').style.display='block';
   fitSVG();
   window.addEventListener('resize',fitSVG);
-  // Render default tables immediately so they show before Firebase responds
   tables=DEFAULT_TABLES.map(function(t){return Object.assign({},t);});
   render();
+  loadTableStats();
   db.ref('.info/connected').on('value',function(s){document.getElementById('sync-dot').className=s.val()?'':'off';});
   db.ref('mapa_v2/main/tables').on('value',function(snap){
     var raw=snap.val();
@@ -227,10 +233,9 @@ function fitSVG(){
   var wrap=document.getElementById('wrap');
   var box=document.getElementById('fp-box');
   var svg=document.getElementById('fp');
-  var maxW=wrap.clientWidth-16;
-  var maxH=wrap.clientHeight-16;
   var svgW=760,svgH=1080;
-  var scale=Math.min(maxW/svgW,maxH/svgH);
+  var maxW=wrap.clientWidth-16;
+  var scale=maxW/svgW;
   var w=Math.round(svgW*scale);
   var h=Math.round(svgH*scale);
   svg.style.width=w+'px';
@@ -239,6 +244,26 @@ function fitSVG(){
 }
 
 function saveTables(){db.ref('mapa_v2/main/tables').set(tables.map(function(t){return Object.assign({},t);}));}
+
+function loadTableStats(){
+  var today=new Date().toISOString().slice(0,10);
+  db.ref('events/'+today).on('value',function(snap){
+    var all=snap.val()||{};
+    var stats={};
+    Object.values(all).forEach(function(cat){
+      var list=Array.isArray(cat)?cat:Object.values(cat);
+      list.forEach(function(g){
+        if(g&&g.table){
+          var k=String(g.table).toLowerCase();
+          if(!stats[k])stats[k]={count:0};
+          stats[k].count++;
+        }
+      });
+    });
+    tableStats=stats;
+    render();
+  });
+}
 
 var NS='http://www.w3.org/2000/svg';
 function svgEl(tag,attrs){
@@ -255,26 +280,39 @@ function render(){
     g.setAttribute('class','tbl-g'+(selected===t?' selected':''));
     g.setAttribute('data-id',t.id);
 
+    var stat=tableStats[String(t.name).toLowerCase()];
+    var occupied=!!stat;
+    var fillColor=occupied?'#e8a838':'#fff';
+    var strokeColor=occupied?'#c07010':'#33312c';
+    var numColor=occupied?'#fff':'#33312c';
+
     var shape,tx,ty;
     if(t.type==='circle'){
       var r=t.r||37;
-      shape=svgEl('circle',{cx:t.cx,cy:t.cy,r:r,fill:'#fff',stroke:'#33312c','stroke-width':'3',class:'tbl-shape'});
-      tx=t.cx; ty=t.cy+9;
+      shape=svgEl('circle',{cx:t.cx,cy:t.cy,r:r,fill:fillColor,stroke:strokeColor,'stroke-width':'3',class:'tbl-shape'});
+      tx=t.cx; ty=t.cy+(occupied&&stat.count?0:9);
     } else {
       var w=t.w||72,h=t.h||72;
-      shape=svgEl('rect',{x:t.x,y:t.y,width:w,height:h,rx:'7',fill:'#fff',stroke:'#33312c','stroke-width':'3',class:'tbl-shape'});
-      tx=t.x+w/2; ty=t.y+h/2+10;
+      shape=svgEl('rect',{x:t.x,y:t.y,width:w,height:h,rx:'7',fill:fillColor,stroke:strokeColor,'stroke-width':'3',class:'tbl-shape'});
+      tx=t.x+w/2; ty=t.y+h/2+(occupied&&stat.count?0:10);
     }
     g.appendChild(shape);
 
     // Number label
-    var txt=svgEl('text',{x:tx,y:ty,'text-anchor':'middle','font-size':t.name.length>2?'24':'32','font-weight':'700',fill:'#33312c','pointer-events':'none'});
+    var txt=svgEl('text',{x:tx,y:ty,'text-anchor':'middle','font-size':t.name.length>2?'22':'28','font-weight':'700',fill:numColor,'pointer-events':'none'});
     txt.textContent=t.name;
     g.appendChild(txt);
 
+    // Guest count
+    if(occupied&&stat.count){
+      var cnt=svgEl('text',{x:tx,y:ty+18,'text-anchor':'middle','font-size':'14',fill:'#fff4d6','pointer-events':'none'});
+      cnt.textContent=stat.count+'p';
+      g.appendChild(cnt);
+    }
+
     // Sub label
-    if(t.sub){
-      var sub=svgEl('text',{x:tx,y:ty+22,'text-anchor':'middle','font-size':'16',fill:'#888','pointer-events':'none'});
+    if(t.sub&&!occupied){
+      var sub=svgEl('text',{x:tx,y:ty+22,'text-anchor':'middle','font-size':'14',fill:'#888','pointer-events':'none'});
       sub.textContent=t.sub;
       g.appendChild(sub);
     }
@@ -337,6 +375,11 @@ function setMode(m){
 function openInfo(t){
   document.getElementById('info-name').textContent=t.name;
   document.getElementById('info-sub').textContent=t.sub||'';
+  var timeEl=document.getElementById('info-time');
+  if(t.timeFrom||t.timeTo){timeEl.textContent='🕐 '+(t.timeFrom||'?')+' – '+(t.timeTo||'?');timeEl.style.display='block';}
+  else{timeEl.style.display='none';}
+  var stat=tableStats[String(t.name).toLowerCase()];
+  document.getElementById('info-count').textContent=stat?stat.count+' persona'+(stat.count!==1?'s':'')+' asignadas':'';
   var el=document.getElementById('info-guests');
   el.textContent='Cargando...';
   var today=new Date().toISOString().slice(0,10);
@@ -363,6 +406,8 @@ function openEdit(t){
   selected=t;
   document.getElementById('es-name').value=t.name;
   document.getElementById('es-sub').value=t.sub||'';
+  document.getElementById('es-from').value=t.timeFrom||'';
+  document.getElementById('es-to').value=t.timeTo||'';
   document.getElementById('edit-overlay').classList.add('open');
   document.getElementById('edit-sheet').classList.add('open');
   setTimeout(function(){document.getElementById('es-name').select();},250);
@@ -371,6 +416,8 @@ function closeEdit(){
   if(selected){
     selected.name=document.getElementById('es-name').value||selected.name;
     selected.sub=document.getElementById('es-sub').value;
+    selected.timeFrom=document.getElementById('es-from').value;
+    selected.timeTo=document.getElementById('es-to').value;
     saveTables();
   }
   document.getElementById('edit-overlay').classList.remove('open');
