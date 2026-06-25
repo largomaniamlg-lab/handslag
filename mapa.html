@@ -30,8 +30,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .mbtn.active{background:rgba(180,79,255,0.2);border-color:var(--accent);color:var(--accent);font-weight:700;}
 .mbtn.active-edit{background:rgba(6,200,232,0.15);border-color:var(--cyan);color:var(--cyan);font-weight:700;}
 #hint{font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center;flex:2;}
-#wrap{flex:1;overflow:auto;background:#e9e3d7;padding:0;}
-#fp-box{width:100%;background:#fff;}
+#wrap{flex:1;overflow:auto;background:var(--bg);padding:0;display:flex;flex-direction:column;}
+#fp-box{width:100%;background:#fff;flex-shrink:0;}
 #fp{display:block;width:100%;height:auto;font-family:'Space Mono',monospace;}
 /* SVG table styles */
 .tbl-g{cursor:pointer;-webkit-tap-highlight-color:transparent;}
@@ -83,7 +83,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   </div>
   <div id="wrap">
     <div id="fp-box">
-      <svg id="fp" viewBox="0 0 760 1080" width="760" height="1080">
+      <svg id="fp" viewBox="0 0 760 1080" width="100%">
         <!-- ── ROOM ── -->
         <rect x="40" y="100" width="680" height="920" fill="#faf7f1"/>
         <!-- ── ZONES ── -->
@@ -204,10 +204,11 @@ function grantAccess(user){
   db.ref('.info/connected').on('value',function(s){document.getElementById('sync-dot').className=s.val()?'':'off';});
   db.ref('mapa_v2/main/tables').on('value',function(snap){
     var raw=snap.val();
-    if(raw){
+    var LAYOUT_VERSION=2;
+    if(raw&&raw.__v===LAYOUT_VERSION){
       var arr=Array.isArray(raw)?raw:Object.values(raw);
-      arr=arr.filter(Boolean);
-      if(arr.length>=DEFAULT_TABLES.length){
+      arr=arr.filter(function(x){return x&&x!==null&&typeof x==='object'&&!('__v' in x);});
+      if(arr.length>0){
         tables=arr;
         nextId=Math.max(nextId,...tables.map(function(t){return t.id||0;}))+1;
       } else {
@@ -228,7 +229,11 @@ function denyAccess(){
 function goBack(){window.location.href='index.html';}
 
 
-function saveTables(){db.ref('mapa_v2/main/tables').set(tables.map(function(t){return Object.assign({},t);}));}
+function saveTables(){
+  var data=tables.map(function(t){return Object.assign({},t);});
+  data.__v=2;
+  db.ref('mapa_v2/main/tables').set(data);
+}
 
 function loadTableStats(){
   var today=new Date().toISOString().slice(0,10);
