@@ -558,14 +558,23 @@ body::before {
       <label class="form-label">Capacity</label>
       <input type="number" class="form-input" id="inputCapacity" value="6" min="1" max="50" />
     </div>
-    <div class="form-row" id="tableTimeWrap" style="display:none;gap:8px">
-      <div style="flex:1">
-        <label class="form-label">Desde</label>
-        <input type="time" class="form-input" id="inputTimeFrom" />
+    <div id="tableTimeWrap" style="display:none">
+      <div class="form-row" style="gap:8px;margin-bottom:0">
+        <div style="flex:1">
+          <label class="form-label">Desde</label>
+          <input type="time" class="form-input" id="inputTimeFrom" oninput="autoFillTimeTo()" />
+        </div>
+        <div style="flex:1">
+          <label class="form-label">Hasta</label>
+          <input type="time" class="form-input" id="inputTimeTo" />
+        </div>
       </div>
-      <div style="flex:1">
-        <label class="form-label">Hasta</label>
-        <input type="time" class="form-input" id="inputTimeTo" />
+      <div class="form-row" style="margin-top:8px;gap:0">
+        <label class="form-label" style="margin-bottom:6px">Tipo de reserva</label>
+        <div style="display:flex;gap:8px">
+          <button type="button" id="holdBtn-free" onclick="setHoldType('free')" style="flex:1;padding:10px;border-radius:8px;border:2px solid var(--accent);background:rgba(180,79,255,0.2);color:var(--accent);font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer">30 min — Gratuita</button>
+          <button type="button" id="holdBtn-paid" onclick="setHoldType('paid')" style="flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:var(--surface);color:var(--muted);font-family:var(--mono);font-size:11px;cursor:pointer">1 hora — Pagada</button>
+        </div>
       </div>
     </div>
     <div class="form-row">
@@ -1197,11 +1206,34 @@ function openModal() {
   document.getElementById('inputCapacity').value = '6';
   document.getElementById('inputTimeFrom').value = '';
   document.getElementById('inputTimeTo').value = '';
+  setHoldType('free');
   document.getElementById('inputPromoter').value = currentUser ? currentUser.name : '';
   document.getElementById('modalOverlay').classList.add('open');
   setTimeout(()=>document.getElementById('inputName').focus(),100);
 }
 function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+
+let currentHoldType = 'free';
+function setHoldType(type) {
+  currentHoldType = type;
+  document.getElementById('holdBtn-free').style.cssText = type==='free'
+    ? 'flex:1;padding:10px;border-radius:8px;border:2px solid var(--accent);background:rgba(180,79,255,0.2);color:var(--accent);font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer'
+    : 'flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:var(--surface);color:var(--muted);font-family:var(--mono);font-size:11px;cursor:pointer';
+  document.getElementById('holdBtn-paid').style.cssText = type==='paid'
+    ? 'flex:1;padding:10px;border-radius:8px;border:2px solid var(--cyan);background:rgba(6,200,232,0.15);color:var(--cyan);font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer'
+    : 'flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:var(--surface);color:var(--muted);font-family:var(--mono);font-size:11px;cursor:pointer';
+  autoFillTimeTo();
+}
+function autoFillTimeTo() {
+  var from = document.getElementById('inputTimeFrom').value;
+  if(!from) return;
+  var parts = from.split(':');
+  var h = parseInt(parts[0]), m = parseInt(parts[1]);
+  var hold = currentHoldType === 'paid' ? 60 : 30;
+  var total = h*60 + m + hold;
+  var hEnd = Math.floor(total/60)%24, mEnd = total%60;
+  document.getElementById('inputTimeTo').value = String(hEnd).padStart(2,'0')+':'+String(mEnd).padStart(2,'0');
+}
 function closeModalOutside(e) { if(e.target===document.getElementById('modalOverlay')) closeModal(); }
 
 function saveGuest() {
@@ -1214,6 +1246,7 @@ function saveGuest() {
     capacity: currentCategory==='tables' ? parseInt(document.getElementById('inputCapacity').value)||6 : 0,
     timeFrom: currentCategory==='tables' ? document.getElementById('inputTimeFrom').value : '',
     timeTo: currentCategory==='tables' ? document.getElementById('inputTimeTo').value : '',
+    paid: currentCategory==='tables' ? currentHoldType==='paid' : false,
     promoter: document.getElementById('inputPromoter').value,
     guests: parseInt(document.getElementById("inputGuests").value) || 0,
     checkedIn: false, checkedAt: '',

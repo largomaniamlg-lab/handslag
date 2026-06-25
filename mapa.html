@@ -82,6 +82,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     <div class="leg"><div class="leg-dot" style="background:#fff"></div>Libre</div>
     <div class="leg"><div class="leg-dot" style="background:#e8a838;border-color:#c07010"></div>Ocupada</div>
     <div class="leg"><div class="leg-dot" style="background:#27ae60;border-color:#1e8449"></div>Completa</div>
+    <div class="leg"><div class="leg-dot" style="background:#e05252;border-color:#c0392b"></div>Hold vencido</div>
   </div>
   <div id="wrap">
     <div id="fp-box">
@@ -223,11 +224,19 @@ function loadTableStats(){
       list.forEach(function(g){
         if(g&&g.table){
           var k=String(g.table).toLowerCase();
-          if(!stats[k])stats[k]={count:0,checked:0};
+          if(!stats[k])stats[k]={count:0,checked:0,expired:false,anyCheckedIn:false};
           var total=1+(parseInt(g.guests)||0);
           var chk=(g.checkedIn?1:0)+(parseInt(g.guestsIn)||0);
           stats[k].count+=total;
           stats[k].checked+=chk;
+          if(g.checkedIn) stats[k].anyCheckedIn=true;
+          if(g.timeFrom&&!g.checkedIn){
+            var nowMin=new Date().getHours()*60+new Date().getMinutes();
+            var fp=g.timeFrom.split(':');
+            var fromMin=parseInt(fp[0])*60+parseInt(fp[1]);
+            var hold=g.paid?60:30;
+            if(nowMin>fromMin+hold) stats[k].expired=true;
+          }
         }
       });
     });
@@ -263,8 +272,9 @@ function render(){
     var stat=tableStats[String(t.name).toLowerCase()];
     var occupied=!!stat;
     var complete=occupied&&stat.checked>=stat.count;
-    var fillColor=complete?'#27ae60':occupied?'#e8a838':'#fff';
-    var strokeColor=complete?'#1e8449':occupied?'#c07010':'#33312c';
+    var expired=occupied&&!complete&&stat.expired&&!stat.anyCheckedIn;
+    var fillColor=complete?'#27ae60':expired?'#e05252':occupied?'#e8a838':'#fff';
+    var strokeColor=complete?'#1e8449':expired?'#c0392b':occupied?'#c07010':'#33312c';
     var numColor=occupied?'#fff':'#33312c';
 
     var shape,tx,ty;
@@ -318,8 +328,7 @@ function openInfo(t){
       });
     });
     if(!guests.length){el.innerHTML='<span style="font-family:var(--mono);font-size:12px;color:var(--muted)">Sin invitados asignados</span>';document.getElementById('info-count').textContent='';return;}
-    var registrants=[...new Set(guests.map(function(g){return g.addedBy||'';}).filter(Boolean))];
-    document.getElementById('info-count').textContent=registrants.length?'👤 '+registrants.join(', '):'';
+    document.getElementById('info-count').textContent='';
     el.innerHTML=guests.map(function(g){
       var total=1+(parseInt(g.guests)||0);
       var lines=[];
@@ -328,7 +337,16 @@ function openInfo(t){
       lines.push('<div style="font-family:var(--font);font-size:20px;font-weight:700;color:'+(g.checkedIn?'var(--accent)':'var(--text)')+';">'+(g.checkedIn?'✓ ':'○ ')+g.name+'</div>');
       lines.push('<div style="font-family:var(--mono);font-size:13px;color:var(--accent);font-weight:700;">'+total+'p</div>');
       lines.push('</div>');
-      if(g.timeFrom||g.timeTo) lines.push('<div style="font-family:var(--mono);font-size:11px;color:var(--cyan);margin-top:3px">🕐 '+(g.timeFrom||'?')+' – '+(g.timeTo||'?')+'</div>');
+      if(g.timeFrom||g.timeTo){
+        var holdMin=g.paid?60:30;
+        var nowMin=new Date().getHours()*60+new Date().getMinutes();
+        var expired2=false;
+        if(g.timeFrom){var fp2=g.timeFrom.split(':');expired2=nowMin>parseInt(fp2[0])*60+parseInt(fp2[1])+holdMin&&!g.checkedIn;}
+        var holdLabel=g.paid?'1h · Pagada':'30min · Gratuita';
+        var timeColor=expired2?'#e05252':'var(--cyan)';
+        var expiredTag=expired2?' ⚠️ VENCIDA':'';
+        lines.push('<div style="font-family:var(--mono);font-size:11px;color:'+timeColor+';margin-top:3px">🕐 '+(g.timeFrom||'?')+' – '+(g.timeTo||'?')+'  <span style="opacity:0.7">'+holdLabel+'</span>'+expiredTag+'</div>');
+      }
       if(g.addedBy) lines.push('<div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px">👤 '+g.addedBy+(g.addedAt?' · '+g.addedAt:'')+'</div>');
       if(g.checkedIn&&g.checkedAt) lines.push('<div style="font-family:var(--mono);font-size:11px;color:#27ae60;margin-top:3px">✓ Entrada: '+g.checkedAt+'</div>');
       if(g.notes) lines.push('<div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:4px;white-space:pre-wrap">'+g.notes+'</div>');
