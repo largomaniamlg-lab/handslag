@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -129,6 +129,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   <div id="info-time" style="font-family:var(--mono);font-size:13px;color:var(--cyan);margin:6px 0 4px;display:none"></div>
   <div id="info-count" style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:14px"></div>
   <div id="info-guests"></div>
+  <div id="info-link-btn" style="margin-top:12px;display:none"></div>
 </div>
 
 <div id="toast"></div>
@@ -223,6 +224,41 @@ function denyAccess(){
 function goBack(){window.location.href='index.html';}
 
 
+
+var _currentInfoTable=null;
+
+function linkTable(t){
+  _currentInfoTable=t;
+  var others=tables.filter(function(x){return x.id!==t.id;});
+  var list=others.map(function(x){
+    return '<button onclick="doLink('+x.id+')" style="display:block;width:100%;text-align:left;padding:8px 12px;margin-bottom:6px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font);font-size:14px;cursor:pointer;">'
+      +(x.linkedTo?'🔗 ':'')+(x.label||x.name)+'</button>';
+  }).join('');
+  document.getElementById('info-guests').innerHTML='<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Select table to link:</div>'+list+'<button onclick="openInfo(_currentInfoTable)" style="width:100%;padding:8px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:var(--font);font-size:13px;cursor:pointer;margin-top:4px;">Cancel</button>';
+}
+
+function doLink(targetId){
+  var src=_currentInfoTable;
+  var tgt=tables.find(function(x){return x.id===targetId;});
+  if(!src||!tgt) return;
+  var groupId=src.id+'-'+tgt.id;
+  src.linkedTo=tgt.id; src.linkedGroup=groupId;
+  tgt.linkedTo=src.id; tgt.linkedGroup=groupId;
+  saveTables();
+  toast('🔗 '+( src.label||src.name)+' linked to '+(tgt.label||tgt.name));
+  closeInfo();
+}
+
+function doUnlink(tableId){
+  var t=tables.find(function(x){return x.id===tableId;});
+  if(!t||!t.linkedTo) return;
+  var partner=tables.find(function(x){return x.id===t.linkedTo;});
+  t.linkedTo=null; t.linkedGroup=null;
+  if(partner){partner.linkedTo=null;partner.linkedGroup=null;}
+  saveTables();
+  toast('Unlinked');
+  closeInfo();
+}
 function saveTables(){
   var data=tables.map(function(t){return Object.assign({},t);});
   data.__v=2;
@@ -316,6 +352,12 @@ function render(){
       g.appendChild(cnt);
     }
 
+    if(t.linkedTo){
+      var lpartner=tables.find(function(x){return x.id===t.linkedTo;});
+      var li=svgEl('text',{x:String(tx),y:String(ty+( t.type==='circle'?(t.r||37)+13:((t.h||60)/2)+15)),fill:'#b44fff','font-size':'9','font-family':'Space Mono,monospace','text-anchor':'middle'});
+      li.textContent='🔗 '+(lpartner?lpartner.label||lpartner.name:'');
+      g.appendChild(li);
+    }
     g.addEventListener('click',function(e){e.stopPropagation();openInfo(t);});
     layer.appendChild(g);
   });
@@ -323,6 +365,20 @@ function render(){
 
 
 function openInfo(t){
+  _currentInfoTable=t;
+  var _u=null;try{_u=JSON.parse(sessionStorage.getItem('hs_currentUser')||localStorage.getItem('hs_currentUser'));}catch(e){}
+  var _isPriv=_u&&(_u.role==='owner'||_u.role==='admin');
+  var linkBtn=document.getElementById('info-link-btn');
+  if(_isPriv){
+    if(t.linkedTo){
+      var partner=tables.find(function(x){return x.id===t.linkedTo;});
+      linkBtn.style.display='block';
+      linkBtn.innerHTML='<button onclick="doUnlink('+t.id+')" style="width:100%;padding:8px 12px;background:rgba(180,79,255,0.15);border:1px solid rgba(180,79,255,0.4);border-radius:8px;color:#b44fff;font-family:var(--font);font-size:13px;cursor:pointer;">🔗 Linked to '+(partner?partner.label||partner.name:'table')+' — Unlink</button>';
+    }else{
+      linkBtn.style.display='block';
+      linkBtn.innerHTML='<button onclick="linkTable(_currentInfoTable)" style="width:100%;padding:8px 12px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:var(--font);font-size:13px;cursor:pointer;">🔗 Link to another table</button>';
+    }
+  }else{linkBtn.style.display='none';}
   document.getElementById('info-name').textContent=t.name;
   document.getElementById('info-sub').textContent=t.sub||'';
   var timeEl=document.getElementById('info-time');
