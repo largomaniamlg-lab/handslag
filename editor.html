@@ -451,9 +451,9 @@ function loadTablesForMap(mapId){
     if(isOnline){try{db.ref('mapa_v2/'+mapId+'/tables').once('value',function(snap){var raw=snap.val();if(raw){var arr=Array.isArray(raw)?raw:Object.values(raw);tables=arr.filter(Boolean);nextId=Math.max.apply(null,[nextId].concat(tables.map(function(t){return t.id||0;})))+1;saveLocal();render();renderList();}});
     db.ref('mapa_v2/'+mapId+'/objects').once('value',function(snap){var raw=snap.val();if(raw){objects=Array.isArray(raw)?raw:Object.values(raw);saveLocal();renderObjList();}});}catch(e){}}
   } else {
-    if(isOnline){try{db.ref('mapa_v2/'+mapId+'/tables').once('value',function(snap){var raw=snap.val();tables=raw?(Array.isArray(raw)?raw:Object.values(raw)).filter(Boolean):DEFAULT_TABLES.map(function(t){return Object.assign({},t);});nextId=Math.max.apply(null,[nextId].concat(tables.map(function(t){return t.id||0;})))+1;saveLocal();render();renderList();});
-    db.ref('mapa_v2/'+mapId+'/objects').once('value',function(snap){var raw=snap.val();if(raw){objects=Array.isArray(raw)?raw:Object.values(raw);saveLocal();renderObjList();}});}catch(e){tables=DEFAULT_TABLES.map(function(t){return Object.assign({},t);});saveLocal();render();renderList();}
-    }else{tables=DEFAULT_TABLES.map(function(t){return Object.assign({},t);});saveLocal();render();renderList();}
+    if(isOnline){try{db.ref('mapa_v2/'+mapId+'/tables').once('value',function(snap){var raw=snap.val();tables=raw?(Array.isArray(raw)?raw:Object.values(raw)).filter(Boolean):[];nextId=tables.length?Math.max.apply(null,tables.map(function(t){return t.id||0;}))+1:1;saveLocal();render();renderList();});
+    db.ref('mapa_v2/'+mapId+'/objects').once('value',function(snap){var raw=snap.val();if(raw){objects=Array.isArray(raw)?raw:Object.values(raw);saveLocal();renderObjList();}});}catch(e){tables=[];objects=[];saveLocal();render();renderList();}
+    }else{tables=[];objects=[];saveLocal();render();renderList();}
   }
 }
 
