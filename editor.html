@@ -460,22 +460,46 @@ function grantAccess(user){
 
 // ── MAPS ──
 function loadTablesForMap(mapId){
-  activeMapId=mapId;
+  // Snapshot the target mapId so async Firebase callbacks never write to the wrong map
+  var targetId=mapId;
+  activeMapId=targetId;
+  tables=[];objects=[];selection=[];selectedObj=null;
   undoStack=[];redoStack=[];updateUndoUI();
-  applyRoom(loadRoom(mapId));
-  document.getElementById('active-map-label').textContent=mapId;
-  var local=loadLocal(mapId);
-  objects=loadObjLocal(mapId);
-  if(local&&local.length){
-    tables=local;
-    nextId=Math.max.apply(null,[nextId].concat(tables.map(function(t){return t.id||0;})))+1;
-    render();renderList();renderObjList();
-    if(isOnline){try{db.ref('mapa_v2/'+mapId+'/tables').once('value',function(snap){var raw=snap.val();if(raw){var arr=Array.isArray(raw)?raw:Object.values(raw);tables=arr.filter(Boolean);nextId=Math.max.apply(null,[nextId].concat(tables.map(function(t){return t.id||0;})))+1;saveLocal();render();renderList();}});
-    db.ref('mapa_v2/'+mapId+'/objects').once('value',function(snap){var raw=snap.val();if(raw){objects=Array.isArray(raw)?raw:Object.values(raw);saveLocal();renderObjList();}});}catch(e){}}
-  } else {
-    if(isOnline){try{db.ref('mapa_v2/'+mapId+'/tables').once('value',function(snap){var raw=snap.val();tables=raw?(Array.isArray(raw)?raw:Object.values(raw)).filter(Boolean):[];nextId=tables.length?Math.max.apply(null,tables.map(function(t){return t.id||0;}))+1:1;saveLocal();render();renderList();});
-    db.ref('mapa_v2/'+mapId+'/objects').once('value',function(snap){var raw=snap.val();if(raw){objects=Array.isArray(raw)?raw:Object.values(raw);saveLocal();renderObjList();}});}catch(e){tables=[];objects=[];saveLocal();render();renderList();}
-    }else{tables=[];objects=[];saveLocal();render();renderList();}
+  applyRoom(loadRoom(targetId));
+  document.getElementById('active-map-label').textContent=targetId;
+
+  // Load from localStorage first (instant)
+  var localT=loadLocal(targetId);
+  var localO=loadObjLocal(targetId);
+  tables=localT||[];
+  objects=localO||[];
+  if(tables.length) nextId=Math.max.apply(null,tables.map(function(t){return t.id||0;}))+1;
+  render();renderList();renderObjList();showProps();showObjProps();
+
+  // Sync from Firebase in background — only apply if still on same map
+  if(isOnline){
+    try{
+      db.ref('mapa_v2/'+targetId+'/tables').once('value',function(snap){
+        if(activeMapId!==targetId)return; // user switched away — discard
+        var raw=snap.val();
+        if(raw){
+          var arr=(Array.isArray(raw)?raw:Object.values(raw)).filter(Boolean);
+          tables=arr;
+          nextId=Math.max.apply(null,tables.map(function(t){return t.id||0;}))+1;
+          try{localStorage.setItem(localKey(targetId),JSON.stringify(tables));}catch(e){}
+          render();renderList();
+        }
+      });
+      db.ref('mapa_v2/'+targetId+'/objects').once('value',function(snap){
+        if(activeMapId!==targetId)return; // user switched away — discard
+        var raw=snap.val();
+        if(raw){
+          objects=Array.isArray(raw)?raw:Object.values(raw);
+          try{localStorage.setItem(objKey(targetId),JSON.stringify(objects));}catch(e){}
+          renderObjList();
+        }
+      });
+    }catch(e){}
   }
 }
 
