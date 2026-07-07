@@ -275,6 +275,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
             <defs><pattern id="grid40" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse"><circle cx="20" cy="20" r="1.5" fill="#33312c"/></pattern></defs>
             <rect id="room-grid" x="90" y="150" width="1260" height="800" fill="url(#grid40)"/>
           </g>
+          <g id="room-handles"></g>
           <!-- objects below tables -->
           <g id="objects-layer"></g>
           <g id="tables-layer"></g>
@@ -519,6 +520,25 @@ function applyRoom(r){
   document.getElementById('room-h-inp').value=r.h;
   document.getElementById('fp').setAttribute('viewBox',(x-pad)+' '+(y-pad)+' '+(r.w+pad*2)+' '+(r.h+pad*2));
   fitSVG();
+  renderRoomHandles(r,x,y,x2,y2);
+}
+function renderRoomHandles(r,x,y,x2,y2){
+  var g=document.getElementById('room-handles');
+  while(g.firstChild)g.removeChild(g.firstChild);
+  var hs=12;
+  // corners: [svgX, svgY, cursor, axis]
+  var corners=[[x,y,'nwse-resize','corner'],[x2,y,'nesw-resize','corner'],[x2,y2,'nwse-resize','corner'],[x,y2,'nesw-resize','corner']];
+  // edges: [svgX, svgY, cursor, axis]
+  var edges=[[(x+x2)/2,y,'ns-resize','ns'],[(x+x2)/2,y2,'ns-resize','ns'],[x,(y+y2)/2,'ew-resize','ew'],[x2,(y+y2)/2,'ew-resize','ew']];
+  corners.concat(edges).forEach(function(h){
+    var el=svgEl('rect',{x:h[0]-hs/2,y:h[1]-hs/2,width:hs,height:hs,rx:'3',fill:'#fff',stroke:'#b44fff','stroke-width':'2',cursor:h[2],opacity:'0.9'});
+    el.addEventListener('mousedown',function(e){e.stopPropagation();e.preventDefault();startRoomDrag(e,h[3]);});
+    g.appendChild(el);
+  });
+}
+var rDrag={active:false,axis:null,startPt:null,origR:null};
+function startRoomDrag(e,axis){
+  rDrag.active=true;rDrag.axis=axis;rDrag.startPt=svgPt(e);rDrag.origR=loadRoom();
 }
 function onRoomInput(){
   var w=parseInt(document.getElementById('room-w-inp').value)||1260;
@@ -1058,6 +1078,17 @@ document.getElementById('fp').addEventListener('mousedown',function(e){
 });
 
 document.addEventListener('mousemove',function(e){
+  if(rDrag.active){
+    e.preventDefault();
+    var pt=svgPt(e),or=rDrag.origR;
+    var dx=pt.x-rDrag.startPt.x,dy=pt.y-rDrag.startPt.y;
+    var nr={w:or.w,h:or.h};
+    if(rDrag.axis==='corner'){nr.w=Math.max(200,or.w+dx*2);nr.h=Math.max(200,or.h+dy*2);}
+    else if(rDrag.axis==='ns'){nr.h=Math.max(200,or.h+dy*2);}
+    else if(rDrag.axis==='ew'){nr.w=Math.max(200,or.w+dx*2);}
+    saveRoom(nr);applyRoom(nr);
+    return;
+  }
   if(hDrag.active){
     e.preventDefault();
     var pt=svgPt(e),o=hDrag.o;
@@ -1110,6 +1141,7 @@ document.addEventListener('mousemove',function(e){
 });
 
 document.addEventListener('mouseup',function(){
+  if(rDrag.active){rDrag.active=false;updatePendingDot(true);}
   if(hDrag.active){
     hDrag.active=false;hDrag.type=null;hDrag.o=null;
     saveLocal();updatePendingDot(true);snapshot();
