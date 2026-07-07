@@ -289,8 +289,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 <div id="toast"></div>
 <div id="exit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;">
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px 24px;max-width:320px;width:90%;font-family:var(--font);">
-    <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px;">Cambios sin subir</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:22px;">Tienes cambios que no se han publicado en la app todavía.</div>
+    <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px;">✓ Guardado localmente</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:22px;">Tu trabajo está guardado en este navegador. Si quieres que aparezca en la app, pulsa PUSH antes de salir.</div>
     <div style="display:flex;flex-direction:column;gap:8px;">
       <button onclick="exitModalAction('push')" style="padding:10px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-family:var(--mono);font-size:12px;cursor:pointer;font-weight:700;">▲ Guardar (PUSH) y salir</button>
       <button onclick="exitModalAction('exit')" style="padding:10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);font-family:var(--mono);font-size:12px;cursor:pointer;">Salir sin guardar</button>
@@ -1247,12 +1247,7 @@ function toast(msg){var el=document.getElementById('toast');el.textContent=msg;e
 
 checkAuth();
 
-window.addEventListener('beforeunload',function(e){
-  var dot=document.getElementById('sync-dot');
-  if(dot&&dot.style.background!=='rgb(39, 174, 96)'){
-    e.preventDefault();e.returnValue='Tienes cambios sin subir a la app (PUSH). ¿Salir de todas formas?';
-  }
-});
+// No beforeunload needed — work is always auto-saved to localStorage
 </script>
 </body>
 </html>
