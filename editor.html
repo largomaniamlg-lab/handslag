@@ -490,8 +490,11 @@ function renderMapsList(){
     nameBtn.style.cssText='flex:1;text-align:left;padding:5px 8px;border-radius:5px;border:1px solid '+(isAct?'var(--accent)':'var(--border)')+';background:'+(isAct?'rgba(180,79,255,0.15)':'var(--surface2)')+';color:'+(isAct?'var(--accent)':'var(--text)')+';font-family:var(--mono);font-size:10px;cursor:pointer;';
     nameBtn.textContent=(isAct?'● ':'')+id;
     nameBtn.onclick=function(){switchMap(id);};
-    nameBtn.ondblclick=function(e){e.stopPropagation();startRenameMap(id,nameBtn);};
     row.appendChild(nameBtn);
+    var renBtn=document.createElement('button');
+    renBtn.title='Renombrar';renBtn.textContent='✏';
+    renBtn.style.cssText='padding:3px 6px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:10px;cursor:pointer;';
+    renBtn.onclick=function(){startRenameMap(id,nameBtn,row);};row.appendChild(renBtn);
     var dupBtn=document.createElement('button');
     dupBtn.title='Duplicar';dupBtn.textContent='⎘';
     dupBtn.style.cssText='padding:3px 7px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:11px;cursor:pointer;';
@@ -508,11 +511,11 @@ function renderMapsList(){
     el.appendChild(row);
   });
 }
-function startRenameMap(id,btn){
+function startRenameMap(id,btn,row){
   var inp=document.createElement('input');
   inp.value=id;
-  inp.style.cssText='flex:1;padding:4px 7px;border-radius:5px;border:1px solid var(--accent);background:var(--surface2);color:var(--text);font-family:var(--mono);font-size:10px;width:100%;box-sizing:border-box;';
-  btn.parentNode.replaceChild(inp,btn);
+  inp.style.cssText='flex:1;padding:4px 7px;border-radius:5px;border:1px solid var(--accent);background:var(--surface2);color:var(--text);font-family:var(--mono);font-size:10px;min-width:0;box-sizing:border-box;';
+  row.replaceChild(inp,btn);
   inp.focus();inp.select();
   function commit(){
     var newName=inp.value.trim().toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9\-]/g,'');
