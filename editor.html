@@ -121,6 +121,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
           <button onclick="createNewMap()" style="padding:5px 9px;border-radius:5px;border:none;background:var(--accent);color:#fff;font-family:var(--mono);font-size:11px;cursor:pointer;">+</button>
         </div>
         <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:6px;">Editando: <span id="active-map-label" style="color:var(--accent);">main</span></div>
+        <div style="display:flex;align-items:center;gap:5px;margin-top:6px;">
+          <span style="font-family:var(--mono);font-size:10px;color:var(--muted);">Sala</span>
+          <input id="room-w-inp" type="number" min="200" max="1260" step="20" value="1260" style="width:54px;padding:3px 5px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:var(--mono);font-size:10px;" oninput="onRoomInput()">
+          <span style="font-family:var(--mono);font-size:10px;color:var(--muted);">×</span>
+          <input id="room-h-inp" type="number" min="200" max="800" step="20" value="800" style="width:54px;padding:3px 5px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:var(--mono);font-size:10px;" oninput="onRoomInput()">
+          <button onclick="rotateRoom()" title="Girar sala 90°" style="padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;cursor:pointer;">⟳</button>
+        </div>
       </div>
       <!-- Mode tabs -->
       <div class="mode-tabs">
@@ -257,16 +264,16 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     <div id="canvas-wrap">
       <div id="fp-box">
         <svg id="fp" viewBox="0 0 1440 1040">
-          <rect x="90" y="150" width="1260" height="800" fill="#faf7f1"/>
-          <g stroke="#33312c" stroke-width="7" stroke-linecap="round" fill="none">
-            <line x1="90" y1="150" x2="1350" y2="150"/>
-            <line x1="90" y1="150" x2="90" y2="950"/>
-            <line x1="1350" y1="150" x2="1350" y2="950"/>
-            <line x1="90" y1="950" x2="1350" y2="950"/>
+          <rect id="room-fill" x="90" y="150" width="1260" height="800" fill="#faf7f1"/>
+          <g id="room-border" stroke="#33312c" stroke-width="7" stroke-linecap="round" fill="none">
+            <line id="room-t" x1="90" y1="150" x2="1350" y2="150"/>
+            <line id="room-l" x1="90" y1="150" x2="90" y2="950"/>
+            <line id="room-r" x1="1350" y1="150" x2="1350" y2="950"/>
+            <line id="room-b" x1="90" y1="950" x2="1350" y2="950"/>
           </g>
           <g opacity="0.1">
             <defs><pattern id="grid40" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse"><circle cx="20" cy="20" r="1.5" fill="#33312c"/></pattern></defs>
-            <rect x="90" y="150" width="1260" height="800" fill="url(#grid40)"/>
+            <rect id="room-grid" x="90" y="150" width="1260" height="800" fill="url(#grid40)"/>
           </g>
           <!-- objects below tables -->
           <g id="objects-layer"></g>
@@ -431,6 +438,7 @@ function grantAccess(user){
 function loadTablesForMap(mapId){
   activeMapId=mapId;
   undoStack=[];redoStack=[];updateUndoUI();
+  applyRoom(loadRoom(mapId));
   document.getElementById('active-map-label').textContent=mapId;
   var local=loadLocal(mapId);
   objects=loadObjLocal(mapId);
@@ -493,6 +501,32 @@ function createNewMap(){
 }
 function autoMapName(){
   var i=1;while(mapsList.indexOf('mapa-'+i)>=0)i++;return 'mapa-'+i;
+}
+function roomKey(id){return 'hs_editor_room_'+(id||activeMapId);}
+function loadRoom(id){try{var r=localStorage.getItem(roomKey(id));if(r)return JSON.parse(r);}catch(e){}return{w:1260,h:800};}
+function saveRoom(r){try{localStorage.setItem(roomKey(),JSON.stringify(r));}catch(e){}}
+function applyRoom(r){
+  var cx=720,cy=550,x=cx-r.w/2,y=cy-r.h/2,x2=cx+r.w/2,y2=cy+r.h/2;
+  document.getElementById('room-fill').setAttribute('x',x);document.getElementById('room-fill').setAttribute('y',y);
+  document.getElementById('room-fill').setAttribute('width',r.w);document.getElementById('room-fill').setAttribute('height',r.h);
+  document.getElementById('room-grid').setAttribute('x',x);document.getElementById('room-grid').setAttribute('y',y);
+  document.getElementById('room-grid').setAttribute('width',r.w);document.getElementById('room-grid').setAttribute('height',r.h);
+  document.getElementById('room-t').setAttribute('x1',x);document.getElementById('room-t').setAttribute('y1',y);document.getElementById('room-t').setAttribute('x2',x2);document.getElementById('room-t').setAttribute('y2',y);
+  document.getElementById('room-b').setAttribute('x1',x);document.getElementById('room-b').setAttribute('y1',y2);document.getElementById('room-b').setAttribute('x2',x2);document.getElementById('room-b').setAttribute('y2',y2);
+  document.getElementById('room-l').setAttribute('x1',x);document.getElementById('room-l').setAttribute('y1',y);document.getElementById('room-l').setAttribute('x2',x);document.getElementById('room-l').setAttribute('y2',y2);
+  document.getElementById('room-r').setAttribute('x1',x2);document.getElementById('room-r').setAttribute('y1',y);document.getElementById('room-r').setAttribute('x2',x2);document.getElementById('room-r').setAttribute('y2',y2);
+  document.getElementById('room-w-inp').value=r.w;
+  document.getElementById('room-h-inp').value=r.h;
+}
+function onRoomInput(){
+  var w=parseInt(document.getElementById('room-w-inp').value)||1260;
+  var h=parseInt(document.getElementById('room-h-inp').value)||800;
+  var r={w:Math.min(1260,Math.max(200,w)),h:Math.min(800,Math.max(200,h))};
+  saveRoom(r);applyRoom(r);
+}
+function rotateRoom(){
+  var r=loadRoom();var nr={w:r.h,h:r.w};
+  saveRoom(nr);applyRoom(nr);
 }
 function resetDefault(){if(!confirm('Restaurar mesas originales. ¿Continuar?'))return;snapshot();tables=DEFAULT_TABLES.map(function(t){return Object.assign({},t);});selection=[];saveLocal();updatePendingDot(true);render();renderList();}
 
