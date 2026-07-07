@@ -79,7 +79,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .obj-row.selected{background:rgba(6,200,232,0.12);border-color:var(--cyan);}
 #obj-props{padding:10px 12px;border-top:1px solid var(--border);flex-shrink:0;display:none;}
 /* Canvas */
-#canvas-wrap{flex:1;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#d4cdc0;padding:10px;position:relative;}
+#canvas-wrap{flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;background:#d4cdc0;padding:10px;position:relative;}
 #fp-box{background:#fff;border-radius:6px;box-shadow:0 6px 32px rgba(0,0,0,0.3);overflow:hidden;}
 #fp{display:block;font-family:'Space Mono',monospace;user-select:none;}
 .tbl-g{cursor:grab;}.tbl-g.sel .tbl-shape{filter:drop-shadow(0 0 8px rgba(180,79,255,0.9));stroke:#b44fff !important;stroke-width:5 !important;}
@@ -104,6 +104,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     <button class="hbtn" id="btn-undo" onclick="undo()" title="Ctrl+Z">↶</button>
     <button class="hbtn" id="btn-redo" onclick="redo()" title="Ctrl+Shift+Z">↷</button>
     <button class="hbtn" id="snap-btn" onclick="cycleSnap()">⊞ <span id="snap-lbl">20</span>px</button>
+    <button class="hbtn" onclick="resetZoom()" title="Ctrl+0 = ajustar · rueda = zoom"><span id="zoom-lbl">100%</span></button>
+    <button class="hbtn" onclick="exportPNG()" title="Exportar PNG">⬇ PNG</button>
     <div id="online-status" style="font-family:var(--mono);font-size:10px;padding:3px 7px;border-radius:5px;background:rgba(255,255,255,0.05);color:var(--muted);">⚫</div>
     <button id="push-btn" onclick="pushToApp()" style="display:none;font-family:var(--mono);font-size:10px;background:#27ae60;color:#fff;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;">▲ PUSH</button>
     <div id="sync-dot"></div>
@@ -160,14 +162,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
             <input class="prop-inp" id="p-sub" type="text" placeholder="VIP, Kaffe..."/>
           </div>
           <div class="prop-row">
-            <span class="prop-lbl">Cap.</span>
-            <select class="prop-inp" id="p-cap">
-              <option value="">—</option>
-              <option value="2">2p</option><option value="4">4p</option>
-              <option value="5">5p</option><option value="6">6p</option>
-              <option value="8">8p</option><option value="10">10p</option>
-              <option value="12">12p</option>
-            </select>
+            <span class="prop-lbl">Máx.</span>
+            <input class="prop-inp" id="p-cap" type="number" min="1" max="50" placeholder="personas" style="width:80px;"/>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--muted);">personas</span>
           </div>
           <div class="prop-row">
             <span class="prop-lbl">Tipo</span>
@@ -509,13 +506,59 @@ function resetDefault(){if(!confirm('Restaurar mesas originales. ¿Continuar?'))
 // ── SVG ──
 var NS='http://www.w3.org/2000/svg';
 function svgEl(tag,attrs){var el=document.createElementNS(NS,tag);Object.keys(attrs).forEach(function(k){el.setAttribute(k,attrs[k]);});return el;}
+var zoomLevel=1, baseScale=1;
 function fitSVG(){
   var wrap=document.getElementById('canvas-wrap');
-  var scale=Math.min((wrap.clientWidth-20)/1440,(wrap.clientHeight-20)/1040);
+  baseScale=Math.min((wrap.clientWidth-20)/1440,(wrap.clientHeight-20)/1040);
+  applyZoom();
+}
+function applyZoom(){
+  var scale=baseScale*zoomLevel;
   var w=Math.round(1440*scale),h=Math.round(1040*scale);
   var svg=document.getElementById('fp');
   svg.style.width=w+'px';svg.style.height=h+'px';
   document.getElementById('fp-box').style.width=w+'px';
+  var lbl=document.getElementById('zoom-lbl');
+  if(lbl) lbl.textContent=Math.round(zoomLevel*100)+'%';
+}
+function resetZoom(){ zoomLevel=1; applyZoom(); }
+// Wheel zoom
+document.getElementById('canvas-wrap').addEventListener('wheel',function(e){
+  e.preventDefault();
+  var delta=e.deltaY>0?0.9:1.1;
+  zoomLevel=Math.max(0.2,Math.min(5,zoomLevel*delta));
+  applyZoom();
+},{passive:false});
+
+// ── EXPORT PNG ──
+function exportPNG(){
+  toast('Generando PNG...');
+  var svg=document.getElementById('fp');
+  // Embed Google Fonts inline so they render in canvas
+  var svgStr=new XMLSerializer().serializeToString(svg);
+  // Make sure viewBox is set
+  svgStr=svgStr.replace('<svg ','<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1040" ');
+  var blob=new Blob([svgStr],{type:'image/svg+xml;charset=utf-8'});
+  var url=URL.createObjectURL(blob);
+  var img=new Image();
+  img.onload=function(){
+    var scale=2; // 2x for crisp output
+    var canvas=document.createElement('canvas');
+    canvas.width=1440*scale; canvas.height=1040*scale;
+    var ctx=canvas.getContext('2d');
+    ctx.fillStyle='#ffffff';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.scale(scale,scale);
+    ctx.drawImage(img,0,0,1440,1040);
+    URL.revokeObjectURL(url);
+    var a=document.createElement('a');
+    a.download=activeMapId+'.png';
+    a.href=canvas.toDataURL('image/png');
+    a.click();
+    toast('✓ '+activeMapId+'.png descargado');
+  };
+  img.onerror=function(){ URL.revokeObjectURL(url); toast('Error al generar PNG'); };
+  img.src=url;
 }
 
 // ── TABLE GEOMETRY ──

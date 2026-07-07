@@ -324,42 +324,92 @@ function render(){
 
     var stat=tableStats[String(t.name).toLowerCase()];
     var occupied=!!stat;
+    var assigned=occupied?stat.count:0;
+    var maxP=t.cap?parseInt(t.cap):0;
     var complete=occupied&&stat.checked>=stat.count;
     var expired=occupied&&!complete&&stat.expired&&!stat.anyCheckedIn;
-    var fillColor=complete?'#27ae60':expired?'#e05252':occupied?'#e8a838':'#fff';
-    var strokeColor=complete?'#1e8449':expired?'#c0392b':occupied?'#c07010':'#33312c';
-    var numColor=occupied?'#fff':'#33312c';
 
+    // Capacity status
+    var overCapacity=maxP>0&&assigned>maxP;
+    var atCapacity=maxP>0&&assigned===maxP;
+    var partialCapacity=maxP>0&&assigned>0&&assigned<maxP;
+
+    var fillColor, strokeColor, strokeW='3', numColor;
+    if(overCapacity){
+      fillColor='#c0392b'; strokeColor='#922b21'; strokeW='5'; numColor='#fff';
+    } else if(atCapacity||complete){
+      fillColor='#27ae60'; strokeColor='#1e8449'; numColor='#fff';
+    } else if(expired){
+      fillColor='#e05252'; strokeColor='#c0392b'; numColor='#fff';
+    } else if(occupied){
+      fillColor='#e8a838'; strokeColor='#c07010'; numColor='#fff';
+    } else {
+      fillColor='#fff'; strokeColor='#33312c'; numColor='#33312c';
+    }
+
+    // Linked table gets a purple border overlay
+    var isLinked=!!t.linkedTo;
     var shape,tx,ty;
     if(t.type==='circle'){
       var r=t.r||37;
-      shape=svgEl('circle',{cx:t.cx,cy:t.cy,r:r,fill:fillColor,stroke:strokeColor,'stroke-width':'3',class:'tbl-shape'});
+      shape=svgEl('circle',{cx:t.cx,cy:t.cy,r:r,fill:fillColor,stroke:isLinked?'#b44fff':strokeColor,'stroke-width':isLinked?'5':strokeW,class:'tbl-shape'});
       tx=t.cx; ty=t.cy+(occupied?-8:9);
     } else {
       var w=t.w||72,h=t.h||72;
-      shape=svgEl('rect',{x:t.x,y:t.y,width:w,height:h,rx:'7',fill:fillColor,stroke:strokeColor,'stroke-width':'3',class:'tbl-shape'});
+      shape=svgEl('rect',{x:t.x,y:t.y,width:w,height:h,rx:'7',fill:fillColor,stroke:isLinked?'#b44fff':strokeColor,'stroke-width':isLinked?'5':strokeW,class:'tbl-shape'});
       tx=t.x+w/2; ty=t.y+h/2+(occupied?-8:10);
     }
     g.appendChild(shape);
 
-    // Number label
-    var txt=svgEl('text',{x:tx,y:ty,'text-anchor':'middle','font-size':t.name.length>2?'22':'28','font-weight':'700',fill:numColor,'pointer-events':'none'});
+    // Linked: dashed secondary ring
+    if(isLinked){
+      var ring;
+      if(t.type==='circle'){
+        ring=svgEl('circle',{cx:t.cx,cy:t.cy,r:(t.r||37)+6,fill:'none',stroke:'#b44fff','stroke-width':'2','stroke-dasharray':'5,3','pointer-events':'none',opacity:'0.6'});
+      } else {
+        ring=svgEl('rect',{x:t.x-5,y:t.y-5,width:(t.w||72)+10,height:(t.h||72)+10,rx:'10',fill:'none',stroke:'#b44fff','stroke-width':'2','stroke-dasharray':'5,3','pointer-events':'none',opacity:'0.6'});
+      }
+      g.appendChild(ring);
+    }
+
+    // Table number
+    var txt=svgEl('text',{x:tx,y:ty,'text-anchor':'middle','font-size':String(t.name).length>2?'22':'28','font-weight':'700',fill:numColor,'pointer-events':'none'});
     txt.textContent=t.name;
     g.appendChild(txt);
 
-    // Guest count
-    if(occupied&&stat.count){
-      var cnt=svgEl('text',{x:tx,y:ty+20,'text-anchor':'middle','font-size':'18','font-weight':'700',fill:'#fff','pointer-events':'none'});
-      cnt.textContent=stat.count;
+    // Guest count / capacity
+    if(occupied&&assigned){
+      var capStr=maxP?assigned+'/'+maxP:String(assigned);
+      var capColor=overCapacity?'#f8c9c9':atCapacity?'#d5f5e3':'#fff';
+      var cnt=svgEl('text',{x:tx,y:ty+20,'text-anchor':'middle','font-size':'16','font-weight':'700',fill:capColor,'pointer-events':'none'});
+      cnt.textContent=capStr+'p';
       g.appendChild(cnt);
+    } else if(!occupied&&maxP){
+      // Show max capacity when empty
+      var cap0=svgEl('text',{x:tx,y:ty+18,'text-anchor':'middle','font-size':'13',fill:'#aaa','pointer-events':'none'});
+      cap0.textContent='máx '+maxP;
+      g.appendChild(cap0);
     }
 
-    if(t.linkedTo){
+    // Linked label
+    if(isLinked){
       var lpartner=tables.find(function(x){return x.id===t.linkedTo;});
-      var li=svgEl('text',{x:String(tx),y:String(ty+( t.type==='circle'?(t.r||37)+13:((t.h||60)/2)+15)),fill:'#b44fff','font-size':'9','font-family':'Space Mono,monospace','text-anchor':'middle'});
-      li.textContent='🔗 '+(lpartner?lpartner.label||lpartner.name:'');
+      var ly=t.type==='circle'?t.cy+(t.r||37)+16:t.y+(t.h||72)+14;
+      var li=svgEl('text',{x:String(tx),y:String(ly),fill:'#b44fff','font-size':'11','font-weight':'700','font-family':'Space Mono,monospace','text-anchor':'middle','pointer-events':'none'});
+      li.textContent='🔗'+(lpartner?' '+lpartner.name:'');
       g.appendChild(li);
     }
+
+    // Over capacity warning badge
+    if(overCapacity){
+      var bx=t.type==='circle'?t.cx+(t.r||37)-8:t.x+(t.w||72)-8;
+      var by=t.type==='circle'?t.cy-(t.r||37)+8:t.y+8;
+      var badge=svgEl('circle',{cx:bx,cy:by,r:'10',fill:'#f39c12','pointer-events':'none'});
+      var badgeTxt=svgEl('text',{x:bx,y:by+4,'text-anchor':'middle','font-size':'12','font-weight':'700',fill:'#000','pointer-events':'none'});
+      badgeTxt.textContent='!';
+      g.appendChild(badge);g.appendChild(badgeTxt);
+    }
+
     g.addEventListener('click',function(e){e.stopPropagation();openInfo(t);});
     layer.appendChild(g);
   });
@@ -400,6 +450,18 @@ function openInfo(t){
           guests.push(g);
       });
     });
+    var totalAssigned=guests.reduce(function(s,g){return s+1+(parseInt(g.guests)||0);},0);
+    var maxP=t.cap?parseInt(t.cap):0;
+    var capEl=document.getElementById('info-cap-warn');
+    if(capEl){capEl.remove();}
+    if(maxP){
+      var capDiv=document.createElement('div');
+      capDiv.id='info-cap-warn';
+      var over=totalAssigned>maxP;
+      capDiv.style.cssText='margin-bottom:10px;padding:8px 12px;border-radius:8px;font-family:var(--mono);font-size:12px;text-align:center;'+(over?'background:rgba(192,57,43,0.2);border:1px solid #c0392b;color:#e74c3c;':'background:rgba(39,174,96,0.12);border:1px solid #27ae60;color:#27ae60;');
+      capDiv.textContent=(over?'⚠ EXCEDIDA: ':totalAssigned===maxP?'✓ LLENA: ':'● ')+totalAssigned+' / '+maxP+' personas';
+      el.parentNode.insertBefore(capDiv,el);
+    }
     if(!guests.length){el.innerHTML='<span style="font-family:var(--mono);font-size:12px;color:var(--muted)">'+mt.noGuests+'</span>';document.getElementById('info-count').textContent='';return;}
     document.getElementById('info-count').textContent='';
     el.innerHTML=guests.map(function(g){
