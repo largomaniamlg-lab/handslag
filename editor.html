@@ -287,6 +287,17 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   </div>
 </div>
 <div id="toast"></div>
+<div id="exit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px 24px;max-width:320px;width:90%;font-family:var(--font);">
+    <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px;">Cambios sin subir</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:22px;">Tienes cambios que no se han publicado en la app todavía.</div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <button onclick="exitModalAction('push')" style="padding:10px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-family:var(--mono);font-size:12px;cursor:pointer;font-weight:700;">▲ Guardar (PUSH) y salir</button>
+      <button onclick="exitModalAction('exit')" style="padding:10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);font-family:var(--mono);font-size:12px;cursor:pointer;">Salir sin guardar</button>
+      <button onclick="exitModalAction('stay')" style="padding:10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:var(--mono);font-size:12px;cursor:pointer;">Quedarme aquí</button>
+    </div>
+  </div>
+</div>
 
 <script>
 const FB_CFG={apiKey:"AIzaSyC4c-4MXb9lrVMiHWn_0tE6PKIOU_lScRs",authDomain:"handslag-fdd42.firebaseapp.com",databaseURL:"https://handslag-fdd42-default-rtdb.europe-west1.firebasedatabase.app",projectId:"handslag-fdd42",storageBucket:"handslag-fdd42.appspot.com",messagingSenderId:"1090291987706",appId:"1:1090291987706:web:0effe68dc7e7faa1ef06cd"};
@@ -412,7 +423,18 @@ function pushToApp(){
 
 // ── AUTH ──
 function checkAuth(){ grantAccess({name:'Editor',role:'owner'}); }
-function goBack(){ window.location.href='index.html'; }
+function goBack(){
+  var dot=document.getElementById('sync-dot');
+  var hasPending=dot&&dot.style.background!=='rgb(39, 174, 96)';
+  if(!hasPending){window.location.href='index.html';return;}
+  document.getElementById('exit-modal').style.display='flex';
+}
+function exitModalAction(action){
+  document.getElementById('exit-modal').style.display='none';
+  if(action==='stay')return;
+  if(action==='push'){pushToApp().then(function(){window.location.href='index.html';});return;}
+  window.location.href='index.html';
+}
 
 function grantAccess(user){
   document.getElementById('lock').style.display='none';
@@ -430,7 +452,7 @@ function grantAccess(user){
   renderMapsList();
   loadTablesForMap(activeMapId);
   setTimeout(function(){
-    if(isOnline){try{db.ref('mapa_v2/__maps').once('value',function(snap){var v=snap.val();if(v){var m=Object.keys(v);if(m.length){mapsList=m;saveMapsLocal();renderMapsList();}}});}catch(e){}}
+    if(isOnline){try{db.ref('mapa_v2/__maps').once('value',function(snap){var v=snap.val();if(v){var m=Object.keys(v);m.forEach(function(id){if(mapsList.indexOf(id)<0)mapsList.push(id);});saveMapsLocal();renderMapsList();}});}catch(e){}}
   },1000);
   updateUndoUI();
   setMode('tables');
