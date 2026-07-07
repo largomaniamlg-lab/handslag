@@ -197,7 +197,9 @@ function grantAccess(user){
   render();
   loadTableStats();
   db.ref('.info/connected').on('value',function(s){document.getElementById('sync-dot').className=s.val()?'':'off';});
-  db.ref('mapa_v2/main/tables').on('value',function(snap){
+  db.ref('mapa_v2/__active').once('value', function(asnap) {
+    var activeMap = asnap.val() || 'main';
+  db.ref('mapa_v2/'+activeMap+'/tables').on('value',function(snap){
     var raw=snap.val();
     var LAYOUT_VERSION=2;
     if(raw&&raw.__v===LAYOUT_VERSION){

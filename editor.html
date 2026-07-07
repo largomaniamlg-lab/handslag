@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -82,6 +82,15 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   </div>
   <div id="body">
     <div id="sidebar">
+      <div style="padding:10px 12px 0;border-bottom:1px solid var(--border);margin-bottom:8px;">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:6px;">MAPS</div>
+        <div id="maps-list"></div>
+        <div style="display:flex;gap:6px;margin-top:6px;margin-bottom:10px;">
+          <input id="new-map-input" placeholder="new map name" onkeydown="if(event.key==='Enter')createNewMap()" style="flex:1;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:var(--mono);font-size:11px;">
+          <button onclick="createNewMap()" style="padding:6px 10px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-family:var(--mono);font-size:11px;cursor:pointer;">+</button>
+        </div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;">EDITING: <span id="active-map-label" style="color:var(--accent);">main</span> &nbsp;<span style="color:var(--cyan);font-size:9px;">(▶ to set live)</span></div>
+      </div>
       <div id="sb-top">
         <div class="sb-title">Mesas (total: <span id="tbl-count">0</span>)</div>
         <button class="add-btn" onclick="addTable('circle')">+ Mesa redonda</button>
@@ -206,7 +215,7 @@ function grantAccess(user){
   fitSVG();
   window.addEventListener('resize',fitSVG);
   db.ref('.info/connected').on('value',function(s){document.getElementById('sync-dot').className=s.val()?'':'off';});
-  db.ref('mapa_v2/main/tables').on('value',function(snap){
+  loadMapsList(); db.ref('mapa_v2/main/tables').on('value',function(snap){
     var raw=snap.val();
     if(raw){
       var arr=Array.isArray(raw)?raw:Object.values(raw);
@@ -225,7 +234,76 @@ function denyAccess(){
   document.getElementById('lock-back').style.display='block';
 }
 function goBack(){window.location.href='index.html';}
-function saveTables(){db.ref('mapa_v2/main/tables').set(tables.map(function(t){return Object.assign({},t);}));}
+
+var activeMapId = 'main';
+var mapsList = [];
+
+function loadMapsList() {
+  db.ref('mapa_v2').once('value', function(snap) {
+    var val = snap.val() || {};
+    mapsList = Object.keys(val).filter(function(k){ return k !== '__v'; });
+    if (mapsList.length === 0) { mapsList = ['main']; }
+    renderMapsList();
+  });
+}
+
+function renderMapsList() {
+  var el = document.getElementById('maps-list');
+  if (!el) return;
+  el.innerHTML = mapsList.map(function(id) {
+    var isActive = id === activeMapId;
+    return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">'
+      + '<button onclick="switchMap(\'' + id + '\')" style="flex:1;text-align:left;padding:7px 10px;border-radius:6px;border:1px solid ' + (isActive ? 'var(--accent)' : 'var(--border)') + ';background:' + (isActive ? 'rgba(180,79,255,0.15)' : 'var(--surface2)') + ';color:' + (isActive ? 'var(--accent)' : 'var(--text)') + ';font-family:var(--mono);font-size:11px;cursor:pointer;">'
+      + (isActive ? '● ' : '') + id + '</button>'
+      + (id !== 'main' ? '<button onclick="deleteMap(\'' + id + '\')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:11px;cursor:pointer;">✕</button>' : '')
+      + '<button onclick="activateMap(\'' + id + '\')" title="Set as active map in app" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--cyan);font-size:10px;cursor:pointer;font-family:var(--mono);">▶</button>'
+      + '</div>';
+  }).join('');
+}
+
+function switchMap(id) {
+  activeMapId = id;
+  db.ref('mapa_v2/' + id + '/tables').once('value', function(snap) {
+    var raw = snap.val();
+    if (raw) {
+      var arr = Array.isArray(raw) ? raw : Object.values(raw);
+      tables = arr.filter(Boolean);
+      nextId = Math.max.apply(null, [nextId].concat(tables.map(function(t){ return t.id||0; }))) + 1;
+    } else {
+      tables = DEFAULT_TABLES.map(function(t){ return Object.assign({},t); });
+      saveTables();
+    }
+    selected = null;
+    render(); renderList(); showProps();
+    renderMapsList();
+    document.getElementById('active-map-label').textContent = id;
+  });
+}
+
+function activateMap(id) {
+  db.ref('mapa_v2/__active').set(id);
+  toast('✓ Map "' + id + '" is now live in the app');
+}
+
+function deleteMap(id) {
+  if (!confirm('Delete map "' + id + '"?')) return;
+  db.ref('mapa_v2/' + id).remove().then(function() {
+    if (activeMapId === id) switchMap('main');
+    loadMapsList();
+  });
+}
+
+function createNewMap() {
+  var name = document.getElementById('new-map-input').value.trim().toLowerCase().replace(/\s+/g,'-');
+  if (!name) return;
+  if (mapsList.includes(name)) { toast('Name already exists'); return; }
+  db.ref('mapa_v2/' + name + '/tables').set(DEFAULT_TABLES.map(function(t){ return Object.assign({},t); })).then(function() {
+    document.getElementById('new-map-input').value = '';
+    loadMapsList();
+    switchMap(name);
+  });
+}
+function saveTables(){db.ref('mapa_v2/'+activeMapId+'/tables').set(tables.map(function(t){return Object.assign({},t);}));}
 function resetDefault(){if(!confirm('Esto restaura las mesas originales del plano. ¿Continuar?'))return;tables=DEFAULT_TABLES.map(function(t){return Object.assign({},t);});selected=null;saveTables();}
 
 function fitSVG(){
