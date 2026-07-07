@@ -126,6 +126,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
           <span style="color:var(--muted);font-size:12px">×</span>
           <input class="prop-inp" id="p-h" type="number" style="width:60px"/>
         </div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button onclick="saveSelected()" style="flex:1;padding:9px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;">✓ Guardar</button>
+          <button onclick="deleteSelected()" style="padding:9px 12px;border-radius:8px;border:1px solid rgba(224,82,82,0.5);background:transparent;color:#e05252;font-family:var(--mono);font-size:11px;cursor:pointer;">✕ Eliminar</button>
+        </div>
       </div>
     </div>
     <div id="canvas-wrap">
@@ -549,6 +553,20 @@ function addTable(type){
   tables.push(t);saveTables();selectTable(t);toast('Mesa añadida — arrástrala al lugar correcto');
 }
 
+function saveSelected(){
+  if(!selected)return;
+  selected.name=document.getElementById('p-name').value||selected.name;
+  selected.sub=document.getElementById('p-sub').value||'';
+  if(selected.type==='circle') selected.r=parseInt(document.getElementById('p-r').value)||37;
+  else{ selected.w=parseInt(document.getElementById('p-w').value)||72; selected.h=parseInt(document.getElementById('p-h').value)||72; }
+  saveTables();render();renderList();toast('✓ Mesa guardada');
+}
+function deleteSelected(){
+  if(!selected)return;
+  if(!confirm('¿Eliminar mesa "'+selected.name+'"?'))return;
+  tables=tables.filter(function(x){return x!==selected;});
+  selected=null;showProps();saveTables();render();renderList();toast('Mesa eliminada');
+}
 function deleteTable(t){
   if(!confirm('Eliminar "'+t.name+'"?'))return;
   tables=tables.filter(function(x){return x!==t;});
