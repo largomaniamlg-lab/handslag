@@ -178,7 +178,7 @@ const DEFAULT_TABLES=[
 
 let tables=[],tableStats={},nextId=200;
 
-function checkAuth(){
+function checkAuth(){ grantAccess({name:'Guest',role:'door'}); return; // auth bypassed
   var user=null;
   try{user=JSON.parse(sessionStorage.getItem('hs_currentUser'));}catch(e){}
   if(!user){try{user=JSON.parse(localStorage.getItem('hs_currentUser'));}catch(e){}}
