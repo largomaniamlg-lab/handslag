@@ -506,7 +506,7 @@ function roomKey(id){return 'hs_editor_room_'+(id||activeMapId);}
 function loadRoom(id){try{var r=localStorage.getItem(roomKey(id));if(r)return JSON.parse(r);}catch(e){}return{w:1260,h:800};}
 function saveRoom(r){try{localStorage.setItem(roomKey(),JSON.stringify(r));}catch(e){}}
 function applyRoom(r){
-  var cx=720,cy=550,x=cx-r.w/2,y=cy-r.h/2,x2=cx+r.w/2,y2=cy+r.h/2;
+  var pad=60,cx=720,cy=550,x=cx-r.w/2,y=cy-r.h/2,x2=cx+r.w/2,y2=cy+r.h/2;
   document.getElementById('room-fill').setAttribute('x',x);document.getElementById('room-fill').setAttribute('y',y);
   document.getElementById('room-fill').setAttribute('width',r.w);document.getElementById('room-fill').setAttribute('height',r.h);
   document.getElementById('room-grid').setAttribute('x',x);document.getElementById('room-grid').setAttribute('y',y);
@@ -517,6 +517,8 @@ function applyRoom(r){
   document.getElementById('room-r').setAttribute('x1',x2);document.getElementById('room-r').setAttribute('y1',y);document.getElementById('room-r').setAttribute('x2',x2);document.getElementById('room-r').setAttribute('y2',y2);
   document.getElementById('room-w-inp').value=r.w;
   document.getElementById('room-h-inp').value=r.h;
+  document.getElementById('fp').setAttribute('viewBox',(x-pad)+' '+(y-pad)+' '+(r.w+pad*2)+' '+(r.h+pad*2));
+  fitSVG();
 }
 function onRoomInput(){
   var w=parseInt(document.getElementById('room-w-inp').value)||1260;
