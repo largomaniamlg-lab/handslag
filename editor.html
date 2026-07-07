@@ -506,8 +506,10 @@ function autoMapName(){
 function roomKey(id){return 'hs_editor_room_'+(id||activeMapId);}
 function loadRoom(id){try{var r=localStorage.getItem(roomKey(id));if(r)return JSON.parse(r);}catch(e){}return{w:1260,h:800};}
 function saveRoom(r){try{localStorage.setItem(roomKey(),JSON.stringify(r));}catch(e){}}
-function applyRoom(r){
-  var pad=60,cx=720,cy=550,x=cx-r.w/2,y=cy-r.h/2,x2=cx+r.w/2,y2=cy+r.h/2;
+function clampRoom(r){return{w:Math.max(200,Math.min(1400,r.w)),h:Math.max(200,Math.min(1000,r.h))};}
+function setRoomGeometry(r){
+  // updates rects/lines/handles only — does NOT touch viewBox or fitSVG
+  var cx=720,cy=550,x=cx-r.w/2,y=cy-r.h/2,x2=cx+r.w/2,y2=cy+r.h/2;
   document.getElementById('room-fill').setAttribute('x',x);document.getElementById('room-fill').setAttribute('y',y);
   document.getElementById('room-fill').setAttribute('width',r.w);document.getElementById('room-fill').setAttribute('height',r.h);
   document.getElementById('room-grid').setAttribute('x',x);document.getElementById('room-grid').setAttribute('y',y);
@@ -518,36 +520,41 @@ function applyRoom(r){
   document.getElementById('room-r').setAttribute('x1',x2);document.getElementById('room-r').setAttribute('y1',y);document.getElementById('room-r').setAttribute('x2',x2);document.getElementById('room-r').setAttribute('y2',y2);
   document.getElementById('room-w-inp').value=r.w;
   document.getElementById('room-h-inp').value=r.h;
-  document.getElementById('fp').setAttribute('viewBox',(x-pad)+' '+(y-pad)+' '+(r.w+pad*2)+' '+(r.h+pad*2));
-  fitSVG();
   renderRoomHandles(r,x,y,x2,y2);
+}
+function applyRoom(r){
+  r=clampRoom(r);
+  setRoomGeometry(r);
+  var pad=60,cx=720,cy=550,x=cx-r.w/2,y=cy-r.h/2;
+  currentVW=r.w+pad*2; currentVH=r.h+pad*2;
+  document.getElementById('fp').setAttribute('viewBox',(x-pad)+' '+(y-pad)+' '+currentVW+' '+currentVH);
+  fitSVG();
 }
 function renderRoomHandles(r,x,y,x2,y2){
   var g=document.getElementById('room-handles');
   while(g.firstChild)g.removeChild(g.firstChild);
-  var hs=12;
-  // corners: [svgX, svgY, cursor, axis]
-  var corners=[[x,y,'nwse-resize','corner'],[x2,y,'nesw-resize','corner'],[x2,y2,'nwse-resize','corner'],[x,y2,'nesw-resize','corner']];
-  // edges: [svgX, svgY, cursor, axis]
-  var edges=[[(x+x2)/2,y,'ns-resize','ns'],[(x+x2)/2,y2,'ns-resize','ns'],[x,(y+y2)/2,'ew-resize','ew'],[x2,(y+y2)/2,'ew-resize','ew']];
-  corners.concat(edges).forEach(function(h){
-    var el=svgEl('rect',{x:h[0]-hs/2,y:h[1]-hs/2,width:hs,height:hs,rx:'3',fill:'#fff',stroke:'#b44fff','stroke-width':'2',cursor:h[2],opacity:'0.9'});
-    el.addEventListener('mousedown',function(e){e.stopPropagation();e.preventDefault();startRoomDrag(e,h[3]);});
+  var hs=14;
+  var pts=[[x,y,'nwse-resize','corner'],[x2,y,'nesw-resize','corner'],[x2,y2,'nwse-resize','corner'],[x,y2,'nesw-resize','corner'],
+           [(x+x2)/2,y,'ns-resize','ns'],[(x+x2)/2,y2,'ns-resize','ns'],[x,(y+y2)/2,'ew-resize','ew'],[x2,(y+y2)/2,'ew-resize','ew']];
+  pts.forEach(function(h){
+    var el=svgEl('rect',{x:h[0]-hs/2,y:h[1]-hs/2,width:hs,height:hs,rx:'3',fill:'#fff',stroke:'#b44fff','stroke-width':'2.5',cursor:h[2],opacity:'0.95'});
+    (function(axis){el.addEventListener('mousedown',function(e){e.stopPropagation();e.preventDefault();startRoomDrag(e,axis);});})(h[3]);
     g.appendChild(el);
   });
 }
 var rDrag={active:false,axis:null,startPt:null,origR:null};
 function startRoomDrag(e,axis){
-  rDrag.active=true;rDrag.axis=axis;rDrag.startPt=svgPt(e);rDrag.origR=loadRoom();
+  rDrag.active=true;rDrag.axis=axis;
+  rDrag.origR=clampRoom(loadRoom());
+  // capture start point in current SVG coords BEFORE any viewBox change
+  rDrag.startPt=svgPt(e);
 }
 function onRoomInput(){
-  var w=parseInt(document.getElementById('room-w-inp').value)||1260;
-  var h=parseInt(document.getElementById('room-h-inp').value)||800;
-  var r={w:Math.min(1260,Math.max(200,w)),h:Math.min(800,Math.max(200,h))};
+  var r=clampRoom({w:parseInt(document.getElementById('room-w-inp').value)||1260,h:parseInt(document.getElementById('room-h-inp').value)||800});
   saveRoom(r);applyRoom(r);
 }
 function rotateRoom(){
-  var r=loadRoom();var nr={w:r.h,h:r.w};
+  var r=clampRoom(loadRoom());var nr=clampRoom({w:r.h,h:r.w});
   saveRoom(nr);applyRoom(nr);
 }
 function resetDefault(){if(!confirm('Restaurar mesas originales. ¿Continuar?'))return;snapshot();tables=DEFAULT_TABLES.map(function(t){return Object.assign({},t);});selection=[];saveLocal();updatePendingDot(true);render();renderList();}
@@ -555,15 +562,15 @@ function resetDefault(){if(!confirm('Restaurar mesas originales. ¿Continuar?'))
 // ── SVG ──
 var NS='http://www.w3.org/2000/svg';
 function svgEl(tag,attrs){var el=document.createElementNS(NS,tag);Object.keys(attrs).forEach(function(k){el.setAttribute(k,attrs[k]);});return el;}
-var zoomLevel=1, baseScale=1;
+var zoomLevel=1, baseScale=1, currentVW=1440, currentVH=1040;
 function fitSVG(){
   var wrap=document.getElementById('canvas-wrap');
-  baseScale=Math.min((wrap.clientWidth-20)/1440,(wrap.clientHeight-20)/1040);
+  baseScale=Math.min((wrap.clientWidth-20)/currentVW,(wrap.clientHeight-20)/currentVH);
   applyZoom();
 }
 function applyZoom(){
   var scale=baseScale*zoomLevel;
-  var w=Math.round(1440*scale),h=Math.round(1040*scale);
+  var w=Math.round(currentVW*scale),h=Math.round(currentVH*scale);
   var svg=document.getElementById('fp');
   svg.style.width=w+'px';svg.style.height=h+'px';
   document.getElementById('fp-box').style.width=w+'px';
@@ -1082,11 +1089,11 @@ document.addEventListener('mousemove',function(e){
     e.preventDefault();
     var pt=svgPt(e),or=rDrag.origR;
     var dx=pt.x-rDrag.startPt.x,dy=pt.y-rDrag.startPt.y;
-    var nr={w:or.w,h:or.h};
-    if(rDrag.axis==='corner'){nr.w=Math.max(200,or.w+dx*2);nr.h=Math.max(200,or.h+dy*2);}
-    else if(rDrag.axis==='ns'){nr.h=Math.max(200,or.h+dy*2);}
-    else if(rDrag.axis==='ew'){nr.w=Math.max(200,or.w+dx*2);}
-    saveRoom(nr);applyRoom(nr);
+    var nr=clampRoom({
+      w:rDrag.axis==='ns'?or.w:or.w+dx*2,
+      h:rDrag.axis==='ew'?or.h:or.h+dy*2
+    });
+    setRoomGeometry(nr); // geometry only — viewBox stays fixed during drag
     return;
   }
   if(hDrag.active){
@@ -1141,7 +1148,12 @@ document.addEventListener('mousemove',function(e){
 });
 
 document.addEventListener('mouseup',function(){
-  if(rDrag.active){rDrag.active=false;updatePendingDot(true);}
+  if(rDrag.active){
+    var or=rDrag.origR,pt=svgPt({clientX:0,clientY:0});// just finalize with last geometry
+    var rFinal=clampRoom({w:parseInt(document.getElementById('room-w-inp').value)||or.w,h:parseInt(document.getElementById('room-h-inp').value)||or.h});
+    saveRoom(rFinal);applyRoom(rFinal);
+    rDrag.active=false;updatePendingDot(true);
+  }
   if(hDrag.active){
     hDrag.active=false;hDrag.type=null;hDrag.o=null;
     saveLocal();updatePendingDot(true);snapshot();
