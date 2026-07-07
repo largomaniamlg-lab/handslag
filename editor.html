@@ -492,14 +492,17 @@ function deleteMap(id){
   renderMapsList();
 }
 function createNewMap(){
-  var name=document.getElementById('new-map-input').value.trim().toLowerCase().replace(/\s+/g,'-');
-  if(!name){toast('Escribe un nombre');return;}
+  var raw=document.getElementById('new-map-input').value.trim().toLowerCase().replace(/\s+/g,'-');
+  var name=raw||autoMapName();
   if(mapsList.indexOf(name)>=0){toast('Ese nombre ya existe');return;}
   mapsList.push(name);saveMapsLocal();
   document.getElementById('new-map-input').value='';
   try{localStorage.setItem(localKey(name),JSON.stringify([]));}catch(e){}
   try{localStorage.setItem(objKey(name),JSON.stringify([]));}catch(e){}
   renderMapsList();switchMap(name);toast('"'+name+'" creado');
+}
+function autoMapName(){
+  var i=1;while(mapsList.indexOf('mapa-'+i)>=0)i++;return 'mapa-'+i;
 }
 function resetDefault(){if(!confirm('Restaurar mesas originales. ¿Continuar?'))return;snapshot();tables=DEFAULT_TABLES.map(function(t){return Object.assign({},t);});selection=[];saveLocal();updatePendingDot(true);render();renderList();}
 
