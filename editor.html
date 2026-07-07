@@ -205,6 +205,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
             <button class="obj-btn" onclick="addObject('door')">🚪<span>Puerta</span></button>
             <button class="obj-btn" onclick="addObject('divider')">▬<span>Separador</span></button>
             <button class="obj-btn" onclick="addObject('plant')">🌿<span>Planta</span></button>
+            <button class="obj-btn" onclick="addObject('chair')">🪑<span>Silla</span></button>
           </div>
         </div>
         <div id="obj-list"></div>
@@ -630,7 +631,7 @@ function setTblPos(t,cx,cy){
 }
 
 // ── RENDER OBJECTS ──
-var OBJ_COLORS={door:'#6b4e3d',divider:'#555',plant:'#2e7d32',area:'#f3e7d8'};
+var OBJ_COLORS={door:'#6b4e3d',divider:'#555',plant:'#2e7d32',area:'#f3e7d8',chair:'#8d7b6a'};
 function renderObjects(){
   var layer=document.getElementById('objects-layer');
   while(layer.firstChild)layer.removeChild(layer.firstChild);
@@ -727,6 +728,29 @@ function renderObjects(){
       if(isSel){var sel=svgEl('circle',{cx:0,cy:0,r:r+6,fill:'none',stroke:'#06c8e8','stroke-width':'2','stroke-dasharray':'4,2'});inner.appendChild(sel);}
       if(o.locked){var lk=svgEl('text',{x:r+4,y:5,'font-size':'14','pointer-events':'none'});lk.textContent='🔒';inner.appendChild(lk);}
       g.appendChild(inner);
+
+    } else if(o.type==='chair'){
+      var sz=o.size||28;
+      var inner=document.createElementNS(NS,'g');
+      inner.setAttribute('transform','translate('+cx+','+cy+') rotate('+rot+')');
+      // seat
+      var seat=svgEl('rect',{x:-sz/2,y:-sz*0.1,width:sz,height:sz*0.7,rx:String(sz*0.12),fill:OBJ_COLORS.chair});
+      // backrest
+      var back=svgEl('rect',{x:-sz/2,y:-sz/2,width:sz,height:sz*0.35,rx:String(sz*0.1),fill:'#6b5a4e'});
+      // legs
+      var legL=svgEl('rect',{x:-sz/2,y:sz*0.55,width:sz*0.18,height:sz*0.3,rx:'2',fill:'#6b5a4e'});
+      var legR=svgEl('rect',{x:sz/2-sz*0.18,y:sz*0.55,width:sz*0.18,height:sz*0.3,rx:'2',fill:'#6b5a4e'});
+      inner.appendChild(legL);inner.appendChild(legR);inner.appendChild(seat);inner.appendChild(back);
+      if(isSel){
+        var sel=svgEl('rect',{x:-sz/2-5,y:-sz/2-5,width:sz+10,height:sz*1.15+10,rx:'4',fill:'none',stroke:'#06c8e8','stroke-width':'2','stroke-dasharray':'4,2'});inner.appendChild(sel);
+        if(!o.locked){
+          var rl=svgEl('line',{x1:0,y1:-sz/2-5,x2:0,y2:-sz/2-26,stroke:'#06c8e8','stroke-width':'1.5','pointer-events':'none'});inner.appendChild(rl);
+          var rh=svgEl('circle',{cx:0,cy:-sz/2-34,r:7,fill:'#06c8e8',stroke:'#fff','stroke-width':'2',cursor:'crosshair'});
+          rh.addEventListener('mousedown',function(e){startRotDrag(e,o);});inner.appendChild(rh);
+        }
+      }
+      if(o.locked){var lk=svgEl('text',{x:sz/2+4,y:0,'font-size':'14','pointer-events':'none'});lk.textContent='🔒';inner.appendChild(lk);}
+      g.appendChild(inner);
     }
 
     if(!o.locked){
@@ -796,8 +820,8 @@ function renderList(){
 }
 
 // ── OBJECTS LIST ──
-var OBJ_ICONS={area:'🏷',door:'🚪',divider:'▬',plant:'🌿'};
-var OBJ_NAMES={area:'Área',door:'Puerta',divider:'Separador',plant:'Planta'};
+var OBJ_ICONS={area:'🏷',door:'🚪',divider:'▬',plant:'🌿',chair:'🪑'};
+var OBJ_NAMES={area:'Área',door:'Puerta',divider:'Separador',plant:'Planta',chair:'Silla'};
 function renderObjList(){
   var list=document.getElementById('obj-list');
   while(list.firstChild)list.removeChild(list.firstChild);
@@ -886,7 +910,7 @@ function showObjProps(){
   var o=selectedObj;
   panel.style.display='block';
   var isArea=o.type==='area';
-  var hasSz=o.type==='door'||o.type==='divider'||o.type==='plant';
+  var hasSz=o.type==='door'||o.type==='divider'||o.type==='plant'||o.type==='chair';
   var hasRot=o.type!=='plant';
   document.getElementById('op-type-title').textContent=OBJ_NAMES[o.type]||o.type;
   document.getElementById('op-text-row').style.display=isArea?'flex':'none';
@@ -922,7 +946,7 @@ function saveObj(){
     o.color=document.getElementById('op-color').value;
   }
   if(o.type!=='plant') o.rotation=parseInt(document.getElementById('op-rot').value)||0;
-  if(o.type==='door'||o.type==='divider'||o.type==='plant') o.size=parseInt(document.getElementById('op-size').value)||100;
+  if(o.type==='door'||o.type==='divider'||o.type==='plant'||o.type==='chair') o.size=parseInt(document.getElementById('op-size').value)||100;
   saveLocal();updatePendingDot(true);render();renderObjList();showObjProps();toast('✓ Guardado');
 }
 function toggleBgNone(){
@@ -947,7 +971,8 @@ function addObject(type){
     area:{text:'Área',w:160,h:80,fontSize:22,color:'#33312c',bgColor:'#f3e7d8',noBg:false},
     door:{size:80},
     divider:{size:160},
-    plant:{size:30}
+    plant:{size:30},
+    chair:{size:28}
   };
   var o=Object.assign({id:nextObjId++,type:type,x:720,y:520,rotation:0,locked:false},defaults[type]||{});
   objects.push(o);selectedObj=o;
@@ -1199,6 +1224,13 @@ document.addEventListener('keydown',function(e){
 function toast(msg){var el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(function(){el.classList.remove('show');},2400);}
 
 checkAuth();
+
+window.addEventListener('beforeunload',function(e){
+  var dot=document.getElementById('sync-dot');
+  if(dot&&dot.style.background!=='rgb(39, 174, 96)'){
+    e.preventDefault();e.returnValue='Tienes cambios sin subir a la app (PUSH). ¿Salir de todas formas?';
+  }
+});
 </script>
 </body>
 </html>
