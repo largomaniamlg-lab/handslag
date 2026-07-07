@@ -78,6 +78,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     <span class="logo">Editor de Mapa</span>
     <div class="spacer"></div>
     <button class="hbtn" onclick="resetDefault()">Restaurar mesas</button>
+    <div id="online-status" style="font-family:var(--mono);font-size:10px;padding:4px 8px;border-radius:6px;background:rgba(255,255,255,0.05);color:var(--muted);">⚫ offline</div>
+    <button id="push-btn" onclick="pushToApp()" style="display:none;font-family:var(--mono);font-size:11px;background:#27ae60;color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;letter-spacing:1px;">▲ PUSH TO APP</button>
     <div id="sync-dot"></div>
   </div>
   <div id="body">
@@ -196,115 +198,226 @@ const DEFAULT_TABLES=[
 
 let tables=[],selected=null,nextId=200;
 let drag={active:false,t:null,startPt:null,origPos:null};
+var activeMapId='main';
+var mapsList=[];
+var isOnline=false;
 
-function checkAuth(){ grantAccess({name:'Editor',role:'owner'}); return; // auth bypassed
-  var user=null;
-  try{user=JSON.parse(sessionStorage.getItem('hs_currentUser'));}catch(e){}
-  if(!user){try{user=JSON.parse(localStorage.getItem('hs_currentUser'));}catch(e){}}
-  if(!user){
-    var uname=sessionStorage.getItem('hs_loggedUsername')||localStorage.getItem('hs_loggedUsername');
-    if(uname){db.ref('users').once('value',function(s){var all=s.val()||{};var f=Object.values(all).find(function(u){return u.username===uname;});if(f&&f.role==='admin')grantAccess(f);else denyAccess();});return;}
-    denyAccess();return;
-  }
-  if(user.role!=='admin'){denyAccess();return;}
-  grantAccess(user);
+// ── OFFLINE-FIRST PERSISTENCE ──
+function localKey(mapId){ return 'hs_editor_tables_'+(mapId||activeMapId); }
+function mapsKey(){ return 'hs_editor_maps'; }
+
+function loadLocal(mapId){
+  try{
+    var raw=localStorage.getItem(localKey(mapId||activeMapId));
+    if(raw){ var arr=JSON.parse(raw); if(arr&&arr.length) return arr; }
+  }catch(e){}
+  return null;
 }
+function saveLocal(){
+  try{ localStorage.setItem(localKey(), JSON.stringify(tables)); }catch(e){}
+}
+function saveMapsLocal(){
+  try{ localStorage.setItem(mapsKey(), JSON.stringify(mapsList)); }catch(e){}
+}
+function loadMapsLocal(){
+  try{ var r=localStorage.getItem(mapsKey()); if(r) return JSON.parse(r); }catch(e){}
+  return ['main'];
+}
+
+function saveTables(){
+  saveLocal();
+  updatePendingDot(true);
+}
+
+function updatePendingDot(hasPending){
+  var dot=document.getElementById('sync-dot');
+  if(dot){ dot.style.background=hasPending?(isOnline?'#f39c12':'#e05252'):'#27ae60'; dot.title=hasPending?(isOnline?'Cambios pendientes de push':'Sin conexión - guardado local'):'Sincronizado'; }
+}
+
+function updateOnlineUI(online){
+  isOnline=online;
+  var status=document.getElementById('online-status');
+  var pushBtn=document.getElementById('push-btn');
+  if(status){ status.textContent=online?'🟢 online':'⚫ offline'; status.style.color=online?'#27ae60':'var(--muted)'; }
+  if(pushBtn){ pushBtn.style.display=online?'inline-block':'none'; }
+  updatePendingDot(true);
+}
+
+function pushToApp(){
+  if(!isOnline){ toast('Sin conexión'); return; }
+  var btn=document.getElementById('push-btn');
+  if(btn){ btn.textContent='⏳ subiendo...'; btn.disabled=true; }
+  // Push current map tables
+  db.ref('mapa_v2/'+activeMapId+'/tables').set(tables.map(function(t){return Object.assign({},t);}))
+  .then(function(){
+    // Push maps list to Firebase (store as metadata)
+    var meta={};
+    mapsList.forEach(function(id){ meta[id]=true; });
+    return db.ref('mapa_v2/__maps').set(meta);
+  })
+  .then(function(){
+    if(btn){ btn.textContent='▲ PUSH TO APP'; btn.disabled=false; }
+    updatePendingDot(false);
+    toast('✓ Cambios subidos a la app');
+  })
+  .catch(function(e){
+    if(btn){ btn.textContent='▲ PUSH TO APP'; btn.disabled=false; }
+    toast('Error: '+e.message);
+  });
+}
+
+function checkAuth(){ grantAccess({name:'Editor',role:'owner'}); }
+
 function grantAccess(user){
   document.getElementById('lock').style.display='none';
   document.getElementById('app').style.display='flex';
   fitSVG();
   window.addEventListener('resize',fitSVG);
-  db.ref('.info/connected').on('value',function(s){document.getElementById('sync-dot').className=s.val()?'':'off';});
-  loadMapsList(); db.ref('mapa_v2/main/tables').on('value',function(snap){
-    var raw=snap.val();
-    if(raw){
-      var arr=Array.isArray(raw)?raw:Object.values(raw);
-      tables=arr.filter(Boolean);
-      nextId=Math.max(nextId,...tables.map(function(t){return t.id||0;}))+1;
+  // Online/offline detection
+  function checkConnection(){
+    updateOnlineUI(navigator.onLine);
+    if(navigator.onLine){
+      // Try Firebase connection indicator
+      try{ db.ref('.info/connected').on('value',function(s){ updateOnlineUI(!!s.val()); }); }catch(e){}
+    }
+  }
+  window.addEventListener('online',function(){ checkConnection(); });
+  window.addEventListener('offline',function(){ updateOnlineUI(false); });
+  checkConnection();
+  // Load maps list from localStorage first, then try Firebase
+  mapsList=loadMapsLocal();
+  renderMapsList();
+  loadTablesForMap(activeMapId);
+  // Try to load maps list from Firebase if online
+  setTimeout(function(){
+    if(isOnline){
+      try{
+        db.ref('mapa_v2/__maps').once('value',function(snap){
+          var val=snap.val();
+          if(val){
+            var fbMaps=Object.keys(val).filter(function(k){return k!=='__active';});
+            if(fbMaps.length>0){
+              mapsList=fbMaps;
+              saveMapsLocal();
+              renderMapsList();
+            }
+          }
+        });
+      }catch(e){}
+    }
+  },1000);
+}
+
+function loadTablesForMap(mapId){
+  activeMapId=mapId;
+  document.getElementById('active-map-label').textContent=mapId;
+  // Always load from localStorage first (instant, offline-capable)
+  var local=loadLocal(mapId);
+  if(local&&local.length){
+    tables=local;
+    nextId=Math.max.apply(null,[nextId].concat(tables.map(function(t){return t.id||0;})))+1;
+    render();renderList();
+    // If online, try to get fresher data from Firebase in background
+    if(isOnline){
+      try{
+        db.ref('mapa_v2/'+mapId+'/tables').once('value',function(snap){
+          var raw=snap.val();
+          if(raw){
+            var arr=Array.isArray(raw)?raw:Object.values(raw);
+            tables=arr.filter(Boolean);
+            nextId=Math.max.apply(null,[nextId].concat(tables.map(function(t){return t.id||0;})))+1;
+            saveLocal();
+            render();renderList();
+          }
+        });
+      }catch(e){}
+    }
+  } else {
+    // No local data — try Firebase if online, else use defaults
+    if(isOnline){
+      try{
+        db.ref('mapa_v2/'+mapId+'/tables').once('value',function(snap){
+          var raw=snap.val();
+          if(raw){
+            var arr=Array.isArray(raw)?raw:Object.values(raw);
+            tables=arr.filter(Boolean);
+          } else {
+            tables=DEFAULT_TABLES.map(function(t){return Object.assign({},t);});
+          }
+          nextId=Math.max.apply(null,[nextId].concat(tables.map(function(t){return t.id||0;})))+1;
+          saveLocal();render();renderList();
+        });
+      }catch(e){
+        tables=DEFAULT_TABLES.map(function(t){return Object.assign({},t);});
+        saveLocal();render();renderList();
+      }
     } else {
       tables=DEFAULT_TABLES.map(function(t){return Object.assign({},t);});
-      saveTables();
+      saveLocal();render();renderList();
     }
-    render();
-    renderList();
-  });
+  }
 }
+
 function denyAccess(){
   document.getElementById('lock-msg').innerHTML='Solo administradores.<br>Inicia sesión con una cuenta admin.';
   document.getElementById('lock-back').style.display='block';
 }
 function goBack(){window.location.href='index.html';}
 
-var activeMapId = 'main';
-var mapsList = [];
-
-function loadMapsList() {
-  db.ref('mapa_v2').once('value', function(snap) {
-    var val = snap.val() || {};
-    mapsList = Object.keys(val).filter(function(k){ return k !== '__v'; });
-    if (mapsList.length === 0) { mapsList = ['main']; }
-    renderMapsList();
-  });
-}
-
-function renderMapsList() {
-  var el = document.getElementById('maps-list');
-  if (!el) return;
-  el.innerHTML = mapsList.map(function(id) {
-    var isActive = id === activeMapId;
+function renderMapsList(){
+  var el=document.getElementById('maps-list');
+  if(!el)return;
+  el.innerHTML=mapsList.map(function(id){
+    var isAct=id===activeMapId;
     return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">'
-      + '<button onclick="switchMap(\'' + id + '\')" style="flex:1;text-align:left;padding:7px 10px;border-radius:6px;border:1px solid ' + (isActive ? 'var(--accent)' : 'var(--border)') + ';background:' + (isActive ? 'rgba(180,79,255,0.15)' : 'var(--surface2)') + ';color:' + (isActive ? 'var(--accent)' : 'var(--text)') + ';font-family:var(--mono);font-size:11px;cursor:pointer;">'
-      + (isActive ? '● ' : '') + id + '</button>'
-      + (id !== 'main' ? '<button onclick="deleteMap(\'' + id + '\')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:11px;cursor:pointer;">✕</button>' : '')
-      + '<button onclick="activateMap(\'' + id + '\')" title="Set as active map in app" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--cyan);font-size:10px;cursor:pointer;font-family:var(--mono);">▶</button>'
-      + '</div>';
+      +'<button onclick="switchMap(\''+id+'\')" style="flex:1;text-align:left;padding:7px 10px;border-radius:6px;border:1px solid '+(isAct?'var(--accent)':'var(--border)')+';background:'+(isAct?'rgba(180,79,255,0.15)':'var(--surface2)')+';color:'+(isAct?'var(--accent)':'var(--text)')+';font-family:var(--mono);font-size:11px;cursor:pointer;">'
+      +(isAct?'● ':'')+id+'</button>'
+      +(id!=='main'?'<button onclick="deleteMap(\''+id+'\')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:11px;cursor:pointer;">✕</button>':'')
+      +'<button onclick="activateMap(\''+id+'\')" title="Set as live map in app" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--cyan);font-size:10px;cursor:pointer;font-family:var(--mono);">▶</button>'
+      +'</div>';
   }).join('');
 }
 
-function switchMap(id) {
-  activeMapId = id;
-  db.ref('mapa_v2/' + id + '/tables').once('value', function(snap) {
-    var raw = snap.val();
-    if (raw) {
-      var arr = Array.isArray(raw) ? raw : Object.values(raw);
-      tables = arr.filter(Boolean);
-      nextId = Math.max.apply(null, [nextId].concat(tables.map(function(t){ return t.id||0; }))) + 1;
-    } else {
-      tables = DEFAULT_TABLES.map(function(t){ return Object.assign({},t); });
-      saveTables();
-    }
-    selected = null;
-    render(); renderList(); showProps();
-    renderMapsList();
-    document.getElementById('active-map-label').textContent = id;
-  });
+function switchMap(id){
+  selected=null;showProps();
+  loadTablesForMap(id);
+  renderMapsList();
 }
 
-function activateMap(id) {
-  db.ref('mapa_v2/__active').set(id);
-  toast('✓ Map "' + id + '" is now live in the app');
+function activateMap(id){
+  if(!isOnline){ toast('Sin conexión — conectate para activar un mapa'); return; }
+  try{
+    db.ref('mapa_v2/__active').set(id).then(function(){
+      toast('✓ Mapa "'+id+'" está ahora en vivo en la app');
+    });
+  }catch(e){ toast('Error al activar: '+e.message); }
 }
 
-function deleteMap(id) {
-  if (!confirm('Delete map "' + id + '"?')) return;
-  db.ref('mapa_v2/' + id).remove().then(function() {
-    if (activeMapId === id) switchMap('main');
-    loadMapsList();
-  });
+function deleteMap(id){
+  if(!confirm('¿Eliminar mapa "'+id+'"?'))return;
+  mapsList=mapsList.filter(function(m){return m!==id;});
+  saveMapsLocal();
+  try{ localStorage.removeItem(localKey(id)); }catch(e){}
+  if(isOnline){ try{ db.ref('mapa_v2/'+id).remove(); }catch(e){} }
+  if(activeMapId===id) switchMap('main');
+  renderMapsList();
 }
 
-function createNewMap() {
-  var name = document.getElementById('new-map-input').value.trim().toLowerCase().replace(/\s+/g,'-');
-  if (!name) return;
-  if (mapsList.includes(name)) { toast('Name already exists'); return; }
-  db.ref('mapa_v2/' + name + '/tables').set(DEFAULT_TABLES.map(function(t){ return Object.assign({},t); })).then(function() {
-    document.getElementById('new-map-input').value = '';
-    loadMapsList();
-    switchMap(name);
-  });
+function createNewMap(){
+  var name=document.getElementById('new-map-input').value.trim().toLowerCase().replace(/\s+/g,'-');
+  if(!name){ toast('Escribe un nombre'); return; }
+  if(mapsList.indexOf(name)>=0){ toast('Ese nombre ya existe'); return; }
+  mapsList.push(name);
+  saveMapsLocal();
+  document.getElementById('new-map-input').value='';
+  // Save default tables locally for new map
+  try{ localStorage.setItem(localKey(name), JSON.stringify(DEFAULT_TABLES.map(function(t){return Object.assign({},t);}))); }catch(e){}
+  renderMapsList();
+  switchMap(name);
+  toast('Mapa "'+name+'" creado (local) — usa PUSH TO APP para subir');
 }
-function saveTables(){db.ref('mapa_v2/'+activeMapId+'/tables').set(tables.map(function(t){return Object.assign({},t);}));}
-function resetDefault(){if(!confirm('Esto restaura las mesas originales del plano. ¿Continuar?'))return;tables=DEFAULT_TABLES.map(function(t){return Object.assign({},t);});selected=null;saveTables();}
+
+function resetDefault(){if(!confirm('Esto restaura las mesas originales del plano. ¿Continuar?'))return;tables=DEFAULT_TABLES.map(function(t){return Object.assign({},t);});selected=null;saveTables();render();renderList();}
 
 function fitSVG(){
   var wrap=document.getElementById('canvas-wrap');
