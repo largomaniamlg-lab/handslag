@@ -666,8 +666,9 @@ function openInfo(t){
   } else {
     linkBtn.style.display='none';
   }
+  var _isOwner=_u&&_u.role==='owner';
   var nameEl=document.getElementById('info-name');
-  if(_isPriv){
+  if(_isOwner){
     nameEl.innerHTML='<span style="cursor:pointer" onclick="renameTable(_currentInfoTable)">'+t.name+'</span><button onclick="renameTable(_currentInfoTable)" style="margin-left:10px;background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer;vertical-align:middle;padding:0;line-height:1;" title="'+(mt.tapToRename||'Rename')+'">✏️</button>';
   } else {
     nameEl.textContent=t.name;
