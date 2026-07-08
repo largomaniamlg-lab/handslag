@@ -76,6 +76,20 @@ A feature is **APPROVED** only when it passes the Nightclub Operations Manager t
 
 ---
 
+## Fast Track Rule
+
+A task can be implemented directly by the Lead Developer without formal Council approval if it meets ALL of these conditions:
+
+- Estimated under 15 minutes
+- Does not modify the architecture
+- Does not affect security
+- Does not change the data model
+- Aligned with the current sprint objective
+
+After implementing, update the relevant documentation.
+
+---
+
 ## Decision Format
 
 ```
