@@ -98,7 +98,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 </div>
 <div id="app">
   <div id="hdr">
-    <button class="hbtn" onclick="goBack()">← Volver</button>
+    <button class="hbtn" id="btn-back-ed" onclick="goBack()">← Volver</button>
     <span class="logo">Editor</span>
     <div class="spacer"></div>
     <button class="hbtn" id="btn-undo" onclick="undo()" title="Ctrl+Z">↶</button>
@@ -115,15 +115,15 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     <div id="sidebar">
       <!-- Maps section (always visible) -->
       <div id="maps-section">
-        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:5px;">MAPAS</div>
+        <div id="lbl-maps" style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:5px;">MAPAS</div>
         <div id="maps-list"></div>
         <div style="display:flex;gap:5px;margin-top:5px;">
           <input id="new-map-input" placeholder="nombre del mapa" onkeydown="if(event.key==='Enter')createNewMap()" style="flex:1;padding:5px 7px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:var(--mono);font-size:10px;">
           <button onclick="createNewMap()" style="padding:5px 9px;border-radius:5px;border:none;background:var(--accent);color:#fff;font-family:var(--mono);font-size:11px;cursor:pointer;">+</button>
         </div>
-        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:6px;">Editando: <span id="active-map-label" style="color:var(--accent);">main</span></div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:6px;"><span id="lbl-editing">Editando:</span> <span id="active-map-label" style="color:var(--accent);">main</span></div>
         <div style="display:flex;align-items:center;gap:5px;margin-top:6px;">
-          <span style="font-family:var(--mono);font-size:10px;color:var(--muted);">Sala</span>
+          <span id="lbl-room" style="font-family:var(--mono);font-size:10px;color:var(--muted);">Sala</span>
           <input id="room-w-inp" type="number" min="200" max="1260" step="20" value="1260" style="width:54px;padding:3px 5px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:var(--mono);font-size:10px;" oninput="onRoomInput()">
           <span style="font-family:var(--mono);font-size:10px;color:var(--muted);">×</span>
           <input id="room-h-inp" type="number" min="200" max="800" step="20" value="800" style="width:54px;padding:3px 5px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:var(--mono);font-size:10px;" oninput="onRoomInput()">
@@ -133,18 +133,18 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <!-- Mode tabs -->
       <div class="mode-tabs">
         <button class="mode-tab active" id="tab-tables" onclick="setMode('tables')">🪑 Mesas</button>
-        <button class="mode-tab" id="tab-objects" onclick="setMode('objects')">🏗 Elementos</button>
+        <button class="mode-tab" id="tab-objects" onclick="setMode('objects')">🏗 Objetos</button>
       </div>
       <!-- TABLES MODE -->
       <div id="tables-panel" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
         <div id="sb-top">
-          <div class="sb-title">Mesas (<span id="tbl-count">0</span>) · Sel: <span id="sel-count">0</span></div>
-          <button class="add-btn" onclick="addTable('circle')">+ Mesa redonda</button>
-          <button class="add-btn" style="margin-top:5px;background:var(--surface2);border:1px solid var(--border);color:var(--text);" onclick="addTable('rect')">+ Mesa cuadrada</button>
+          <div class="sb-title"><span id="lbl-table-count">Mesas</span> (<span id="tbl-count">0</span>) · <span id="lbl-sel-count-lbl">Sel</span>: <span id="sel-count">0</span></div>
+          <button id="btn-add-round" class="add-btn" onclick="addTable('circle')">+ Mesa redonda</button>
+          <button id="btn-add-square" class="add-btn" style="margin-top:5px;background:var(--surface2);border:1px solid var(--border);color:var(--text);" onclick="addTable('rect')">+ Mesa cuadrada</button>
         </div>
         <div id="table-list"></div>
         <div id="align-bar">
-          <div class="align-title">ALINEAR SELECCIÓN</div>
+          <div id="lbl-align-title" class="align-title">ALINEAR SELECCIÓN</div>
           <div class="align-row">
             <button class="abtn" onclick="align('left')" title="Izquierda">⬤←</button>
             <button class="abtn" onclick="align('hcenter')" title="Centro H">↔</button>
@@ -160,29 +160,29 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
           </div>
         </div>
         <div id="props" style="display:none;flex-shrink:0;border-top:1px solid var(--border);">
-          <div class="prop-title">Propiedades</div>
+          <div id="lbl-props-title" class="prop-title">Propiedades</div>
           <div class="prop-row">
-            <span class="prop-lbl">Nombre</span>
+            <span id="lbl-prop-name" class="prop-lbl">Nombre</span>
             <input class="prop-inp" id="p-name" type="text" placeholder="Ej: 5"/>
           </div>
           <div class="prop-row">
-            <span class="prop-lbl">Zona</span>
+            <span id="lbl-prop-zone" class="prop-lbl">Zona</span>
             <input class="prop-inp" id="p-sub" type="text" placeholder="VIP, Kaffe..."/>
           </div>
           <div class="prop-row">
-            <span class="prop-lbl">Máx.</span>
+            <span id="lbl-prop-cap" class="prop-lbl">Máx.</span>
             <input class="prop-inp" id="p-cap" type="number" min="1" max="50" placeholder="personas" style="width:80px;"/>
-            <span style="font-family:var(--mono);font-size:10px;color:var(--muted);">personas</span>
+            <span id="lbl-prop-people" style="font-family:var(--mono);font-size:10px;color:var(--muted);">personas</span>
           </div>
           <div class="prop-row">
-            <span class="prop-lbl">Tipo</span>
+            <span id="lbl-prop-type" class="prop-lbl">Tipo</span>
             <div class="type-row" style="flex:1">
               <button class="type-btn" id="tb-circle" onclick="setType('circle')">◯ Redonda</button>
               <button class="type-btn" id="tb-rect" onclick="setType('rect')">□ Cuadrada</button>
             </div>
           </div>
           <div class="prop-row" id="row-r" style="display:none">
-            <span class="prop-lbl">Radio</span>
+            <span id="lbl-prop-radius" class="prop-lbl">Radio</span>
             <input class="prop-inp" id="p-r" type="number" style="width:70px"/>
           </div>
           <div class="prop-row" id="row-wh" style="display:none">
@@ -192,7 +192,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
             <input class="prop-inp" id="p-h" type="number" style="width:55px"/>
           </div>
           <div style="display:flex;gap:7px;margin-top:8px;">
-            <button onclick="saveSelected()" style="flex:1;padding:8px;border-radius:7px;border:none;background:var(--accent);color:#fff;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;">✓ Guardar</button>
+            <button id="btn-save-table" onclick="saveSelected()" style="flex:1;padding:8px;border-radius:7px;border:none;background:var(--accent);color:#fff;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;">✓ Guardar</button>
             <button onclick="deleteSelected()" style="padding:8px 10px;border-radius:7px;border:1px solid rgba(224,82,82,0.4);background:transparent;color:#e05252;font-family:var(--mono);font-size:11px;cursor:pointer;">✕</button>
           </div>
         </div>
@@ -200,13 +200,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <!-- OBJECTS MODE -->
       <div id="objects-panel">
         <div id="obj-add-section">
-          <div class="sb-title">Añadir elemento</div>
+          <div id="lbl-add-element" class="sb-title">Añadir elemento</div>
           <div class="obj-grid">
-            <button class="obj-btn" onclick="addObject('area')">🏷<span>Área / Texto</span></button>
-            <button class="obj-btn" onclick="addObject('door')">🚪<span>Puerta</span></button>
-            <button class="obj-btn" onclick="addObject('divider')">▬<span>Separador</span></button>
-            <button class="obj-btn" onclick="addObject('plant')">🌿<span>Planta</span></button>
-            <button class="obj-btn" onclick="addObject('chair')">🪑<span>Silla</span></button>
+            <button id="btn-el-area" class="obj-btn" onclick="addObject('area')">🏷<span>Área / Texto</span></button>
+            <button id="btn-el-door" class="obj-btn" onclick="addObject('door')">🚪<span>Puerta</span></button>
+            <button id="btn-el-div" class="obj-btn" onclick="addObject('divider')">▬<span>Separador</span></button>
+            <button id="btn-el-plant" class="obj-btn" onclick="addObject('plant')">🌿<span>Planta</span></button>
+            <button id="btn-el-chair" class="obj-btn" onclick="addObject('chair')">🪑<span>Silla</span></button>
           </div>
         </div>
         <div id="obj-list"></div>
@@ -214,12 +214,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
           <div class="prop-title" id="op-type-title">Elemento</div>
           <!-- Text (area, label) -->
           <div class="prop-row" id="op-text-row" style="display:none">
-            <span class="prop-lbl">Texto</span>
+            <span id="lbl-op-text" class="prop-lbl">Texto</span>
             <input class="prop-inp" id="op-text" type="text" placeholder="DJ, VIP, Entrada..."/>
           </div>
           <!-- Font size -->
           <div class="prop-row" id="op-fs-row" style="display:none">
-            <span class="prop-lbl">Letra</span>
+            <span id="lbl-op-font" class="prop-lbl">Letra</span>
             <input class="prop-inp" id="op-fs" type="range" min="10" max="80" step="2" style="padding:4px 0;"/>
             <span id="op-fs-lbl" style="font-family:var(--mono);font-size:10px;color:var(--muted);width:28px;">24</span>
           </div>
@@ -232,10 +232,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
           </div>
           <!-- Bg color -->
           <div class="prop-row" id="op-bg-row" style="display:none">
-            <span class="prop-lbl">Fondo</span>
+            <span id="lbl-op-bg" class="prop-lbl">Fondo</span>
             <input id="op-bg" type="color" style="width:40px;height:30px;border-radius:5px;border:1px solid var(--border);cursor:pointer;padding:2px;background:transparent;"/>
             <label style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-left:4px;">
-              <input type="checkbox" id="op-bg-none" style="margin-right:4px;" onchange="toggleBgNone()"/>sin fondo
+              <input type="checkbox" id="op-bg-none" style="margin-right:4px;" onchange="toggleBgNone()"/><span id="lbl-op-nobg">sin fondo</span>
             </label>
           </div>
           <!-- Text color -->
@@ -245,18 +245,18 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
           </div>
           <!-- Rotation -->
           <div class="prop-row" id="op-rot-row" style="display:none">
-            <span class="prop-lbl">Rotar</span>
+            <span id="lbl-op-rotate" class="prop-lbl">Rotar</span>
             <input class="prop-inp" id="op-rot" type="range" min="0" max="345" step="15" style="padding:4px 0;"/>
             <span id="op-rot-lbl" style="font-family:var(--mono);font-size:10px;color:var(--muted);width:30px;">0°</span>
           </div>
           <!-- Size (door, divider, plant) -->
           <div class="prop-row" id="op-size-row" style="display:none">
-            <span class="prop-lbl">Tamaño</span>
+            <span id="lbl-op-size" class="prop-lbl">Tamaño</span>
             <input class="prop-inp" id="op-size" type="range" min="20" max="400" step="10" style="padding:4px 0;"/>
             <span id="op-size-lbl" style="font-family:var(--mono);font-size:10px;color:var(--muted);width:34px;">100</span>
           </div>
           <div style="display:flex;gap:7px;margin-top:8px;">
-            <button onclick="saveObj()" style="flex:1;padding:8px;border-radius:7px;border:none;background:var(--cyan);color:#000;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;">✓ Guardar</button>
+            <button id="btn-save-obj" onclick="saveObj()" style="flex:1;padding:8px;border-radius:7px;border:none;background:var(--cyan);color:#000;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;">✓ Guardar</button>
             <button onclick="toggleObjLock()" id="obj-lock-btn" style="padding:8px 10px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:var(--mono);font-size:11px;cursor:pointer;">🔓</button>
             <button onclick="deleteObj()" style="padding:8px 10px;border-radius:7px;border:1px solid rgba(224,82,82,0.4);background:transparent;color:#e05252;font-family:var(--mono);font-size:11px;cursor:pointer;">✕</button>
           </div>
@@ -290,12 +290,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 <div id="toast"></div>
 <div id="exit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;">
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px 24px;max-width:320px;width:90%;font-family:var(--font);">
-    <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px;">✓ Guardado localmente</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:22px;">Tu trabajo está guardado en este navegador. Si quieres que aparezca en la app, pulsa PUSH antes de salir.</div>
+    <div id="exit-saved-title" style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px;">✓ Guardado localmente</div>
+    <div id="exit-saved-msg" style="font-size:13px;color:var(--muted);margin-bottom:22px;">Tu trabajo está guardado en este navegador. Si quieres que aparezca en la app, pulsa PUSH antes de salir.</div>
     <div style="display:flex;flex-direction:column;gap:8px;">
-      <button onclick="exitModalAction('push')" style="padding:10px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-family:var(--mono);font-size:12px;cursor:pointer;font-weight:700;">▲ Guardar (PUSH) y salir</button>
-      <button onclick="exitModalAction('exit')" style="padding:10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);font-family:var(--mono);font-size:12px;cursor:pointer;">Salir sin guardar</button>
-      <button onclick="exitModalAction('stay')" style="padding:10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:var(--mono);font-size:12px;cursor:pointer;">Quedarme aquí</button>
+      <button id="exit-push-btn" onclick="exitModalAction('push')" style="padding:10px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-family:var(--mono);font-size:12px;cursor:pointer;font-weight:700;">▲ Guardar (PUSH) y salir</button>
+      <button id="exit-no-btn" onclick="exitModalAction('exit')" style="padding:10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);font-family:var(--mono);font-size:12px;cursor:pointer;">Salir sin guardar</button>
+      <button id="exit-stay-btn" onclick="exitModalAction('stay')" style="padding:10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:var(--mono);font-size:12px;cursor:pointer;">Quedarme aquí</button>
     </div>
   </div>
 </div>
@@ -305,6 +305,91 @@ const FB_CFG={apiKey:"AIzaSyC4c-4MXb9lrVMiHWn_0tE6PKIOU_lScRs",authDomain:"hands
 firebase.initializeApp(FB_CFG);
 const db=firebase.database();
 
+
+// ── LANG ──
+var _elang=localStorage.getItem('hs_lang')||'en';
+var _et={
+  en:{
+    back:'← Back', maps:'MAPS', mapName:'map name', editing:'Editing:',
+    room:'Room', tabTables:'🪑 Tables', tabObjects:'🏗 Objects',
+    tableCount:'Tables', sel:'Sel',
+    addRound:'+ Round table', addSquare:'+ Square table',
+    alignTitle:'ALIGN SELECTION',
+    propsTitle:'Properties', propName:'Name', propZone:'Zone', propCap:'Max.', propPeople:'people', propType:'Type',
+    propRadius:'Radius',
+    typeRound:'◯ Round', typeSquare:'□ Square',
+    saveBtn:'✓ Save',
+    addElement:'Add element', elArea:'Area / Text', elDoor:'Door', elDivider:'Divider', elPlant:'Plant', elChair:'Chair',
+    elText:'Text', elFont:'Font', elBg:'Bg', elNoBg:'no bg', elRotate:'Rotate', elSize:'Size',
+    exitSaved:'✓ Saved locally', exitMsg:'Your work is saved in this browser. Push before leaving if you want it in the app.',
+    exitPush:'▲ Save (PUSH) & exit', exitNo:'Exit without saving', exitStay:'Stay here',
+    confirmDeleteMap:'Delete map "%s"?\nThis removes all Firebase data for this map.',
+    confirmDeleteTables:'Delete %s table(s)?',
+    confirmDeleteObj:'Delete this element?',
+  },
+  no:{
+    back:'← Tilbake', maps:'KART', mapName:'kartnavn', editing:'Redigerer:',
+    room:'Rom', tabTables:'🪑 Bord', tabObjects:'🏗 Elementer',
+    tableCount:'Bord', sel:'Valgt',
+    addRound:'+ Rundt bord', addSquare:'+ Firkantet bord',
+    alignTitle:'JUSTER UTVALG',
+    propsTitle:'Egenskaper', propName:'Navn', propZone:'Sone', propCap:'Maks.', propPeople:'pers.', propType:'Type',
+    propRadius:'Radius',
+    typeRound:'◯ Rund', typeSquare:'□ Firkantet',
+    saveBtn:'✓ Lagre',
+    addElement:'Legg til element', elArea:'Område / Tekst', elDoor:'Dør', elDivider:'Skillevegg', elPlant:'Plante', elChair:'Stol',
+    elText:'Tekst', elFont:'Font', elBg:'Bakgrunn', elNoBg:'ingen bg', elRotate:'Roter', elSize:'Størrelse',
+    exitSaved:'✓ Lagret lokalt', exitMsg:'Arbeidet er lagret i denne nettleseren. Push før du går hvis du vil at det skal vises i appen.',
+    exitPush:'▲ Lagre (PUSH) og avslutt', exitNo:'Avslutt uten å lagre', exitStay:'Bli her',
+    confirmDeleteMap:'Slette kart "%s"?\nDette sletter alle Firebase-data for dette kartet.',
+    confirmDeleteTables:'Slette %s bord?',
+    confirmDeleteObj:'Slette dette elementet?',
+  },
+  es:{
+    back:'← Volver', maps:'MAPAS', mapName:'nombre del mapa', editing:'Editando:',
+    room:'Sala', tabTables:'🪑 Mesas', tabObjects:'🏗 Elementos',
+    tableCount:'Mesas', sel:'Sel',
+    addRound:'+ Mesa redonda', addSquare:'+ Mesa cuadrada',
+    alignTitle:'ALINEAR SELECCIÓN',
+    propsTitle:'Propiedades', propName:'Nombre', propZone:'Zona', propCap:'Máx.', propPeople:'personas', propType:'Tipo',
+    propRadius:'Radio',
+    typeRound:'◯ Redonda', typeSquare:'□ Cuadrada',
+    saveBtn:'✓ Guardar',
+    addElement:'Añadir elemento', elArea:'Área / Texto', elDoor:'Puerta', elDivider:'Separador', elPlant:'Planta', elChair:'Silla',
+    elText:'Texto', elFont:'Letra', elBg:'Fondo', elNoBg:'sin fondo', elRotate:'Rotar', elSize:'Tamaño',
+    exitSaved:'✓ Guardado localmente', exitMsg:'Tu trabajo está guardado en este navegador. Si quieres que aparezca en la app, pulsa PUSH antes de salir.',
+    exitPush:'▲ Guardar (PUSH) y salir', exitNo:'Salir sin guardar', exitStay:'Quedarme aquí',
+    confirmDeleteMap:'¿Eliminar mapa "%s"?\nEsto borra los datos de Firebase de este mapa.',
+    confirmDeleteTables:'¿Eliminar %s mesa(s)?',
+    confirmDeleteObj:'¿Eliminar este elemento?',
+  },
+};
+var et=_et[_elang]||_et.en;
+function applyEditorLang(){
+  et=_et[_elang]||_et.en;
+  var s=function(id,v){var el=document.getElementById(id);if(el&&v!==undefined)el.textContent=v;};
+  var sa=function(id,attr,v){var el=document.getElementById(id);if(el&&v!==undefined)el.setAttribute(attr,v);};
+  s('btn-back-ed',et.back);
+  s('lbl-maps',et.maps); sa('new-map-input','placeholder',et.mapName); s('lbl-editing',et.editing);
+  s('lbl-room',et.room);
+  s('tab-tables',et.tabTables); s('tab-objects',et.tabObjects);
+  s('lbl-table-count',et.tableCount); s('lbl-sel-count-lbl',et.sel);
+  s('btn-add-round',et.addRound); s('btn-add-square',et.addSquare);
+  s('lbl-align-title',et.alignTitle);
+  s('lbl-props-title',et.propsTitle); s('lbl-prop-name',et.propName); s('lbl-prop-zone',et.propZone);
+  s('lbl-prop-cap',et.propCap); s('lbl-prop-people',et.propPeople); s('lbl-prop-type',et.propType);
+  s('lbl-prop-radius',et.propRadius);
+  s('tb-circle',et.typeRound); s('tb-rect',et.typeSquare);
+  s('btn-save-table',et.saveBtn);
+  s('lbl-add-element',et.addElement);
+  s('btn-el-area',et.elArea); s('btn-el-door',et.elDoor); s('btn-el-div',et.elDivider);
+  s('btn-el-plant',et.elPlant); s('btn-el-chair',et.elChair);
+  s('lbl-op-text',et.elText); s('lbl-op-font',et.elFont); s('lbl-op-bg',et.elBg);
+  s('lbl-op-nobg',et.elNoBg); s('lbl-op-rotate',et.elRotate); s('lbl-op-size',et.elSize);
+  s('btn-save-obj',et.saveBtn);
+  s('exit-saved-title',et.exitSaved); s('exit-saved-msg',et.exitMsg);
+  s('exit-push-btn',et.exitPush); s('exit-no-btn',et.exitNo); s('exit-stay-btn',et.exitStay);
+}
 
 // ── STATE ──
 var tables=[], selection=[], nextId=200;
@@ -469,6 +554,7 @@ function exitModalAction(action){
 function grantAccess(user){
   document.getElementById('lock').style.display='none';
   document.getElementById('app').style.display='flex';
+  applyEditorLang();
   fitSVG();
   window.addEventListener('resize',fitSVG);
   function checkConn(){
@@ -600,7 +686,7 @@ function duplicateMap(srcId){
 }
 function deleteMap(id){
   if(!id||id==='__active'||id==='__maps'){toast('ID inválido');return;}
-  if(!confirm('¿Eliminar mapa "'+id+'"?\nEsto borra los datos de Firebase de este mapa.'))return;
+  if(!confirm(et.confirmDeleteMap.replace('%s',id)))return;
   mapsList=mapsList.filter(function(m){return m!==id;});saveMapsLocal();
   try{localStorage.removeItem(localKey(id));localStorage.removeItem(objKey(id));localStorage.removeItem(roomKey(id));}catch(e){}
   if(isOnline){
@@ -1016,7 +1102,7 @@ function saveSelected(){
 }
 function deleteSelected(){
   if(!selection.length)return;
-  if(!confirm('¿Eliminar '+selection.length+' mesa(s)?'))return;
+  if(!confirm(et.confirmDeleteTables.replace('%s',selection.length)))return;
   snapshot();var selSet=new Set(selection);
   tables=tables.filter(function(t){return !selSet.has(t);});selection=[];showProps();saveLocal();updatePendingDot(true);render();renderList();
 }
@@ -1091,7 +1177,7 @@ function toggleObjLock(){
 }
 function deleteObj(){
   if(!selectedObj)return;
-  if(!confirm('¿Eliminar este elemento?'))return;
+  if(!confirm(et.confirmDeleteObj))return;
   snapshot();objects=objects.filter(function(o){return o!==selectedObj;});
   selectedObj=null;showObjProps();saveLocal();updatePendingDot(true);render();renderObjList();
 }
