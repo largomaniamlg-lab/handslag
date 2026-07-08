@@ -755,6 +755,12 @@ function getOrCreateEvent(key) {
 // Calendar state
 let calYear, calMonth, selectedCalDay = null;
 
+function _esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 // ══════════════════════════════════════════
 //  FIREBASE SYNC
 // ══════════════════════════════════════════
@@ -779,9 +785,12 @@ function fbClearCalEvent(dateKey) {
 }
 
 function fbSaveUsers() {
-  const obj = {};
-  users.forEach(u => { if (u.uid) obj[u.uid] = { name:u.name, username:u.username, email:u.email||'', role:u.role, approved:u.approved, registeredAt:u.registeredAt||'' }; });
-  db.ref('users').set(obj);
+  // Write each user individually to avoid overwriting the entire /users node
+  const updates = {};
+  users.forEach(u => {
+    if (u.uid) updates['users/' + u.uid] = { name:u.name, username:u.username, email:u.email||'', role:u.role, approved:u.approved, registeredAt:u.registeredAt||'' };
+  });
+  db.ref('/').update(updates);
 }
 
 function listenToDate(dateKey) {
@@ -1668,10 +1677,10 @@ function _renderAdminHtml() {
   if (privileged.length) {
     html += `<div class="section-label">👑 ${tx('adminsLbl')} (${privileged.length})</div>`;
     html += privileged.map(u => `
-      <div class="user-item" style="border-color:rgba(180,79,255,0.2);${showRoles?'cursor:pointer;':''}" ${showRoles?`onclick="openRoleEditor('${u.username}','${u.role}','${u.name}','${u.uid||''}')"`:''}>
+      <div class="user-item" style="border-color:rgba(180,79,255,0.2);${showRoles?'cursor:pointer;':''}" ${showRoles?`onclick="openRoleEditor('${_esc(u.username)}','${_esc(u.role)}','${_esc(u.name)}','${_esc(u.uid||'')}')"`:''}>
         <div class="user-info">
-          <div class="user-name-label">${u.name}</div>
-          <div class="user-role-label">@${u.username}${showRoles?' · '+roleLabel(u.role):''}${u.registeredAt ? ' · ' + u.registeredAt : ''}</div>
+          <div class="user-name-label">${_esc(u.name)}</div>
+          <div class="user-role-label">@${_esc(u.username)}${showRoles?' · '+roleLabel(u.role):''}${u.registeredAt ? ' · ' + u.registeredAt : ''}</div>
         </div>
         <span class="user-status approved" style="border-color:rgba(180,79,255,0.5)">${showRoles?roleLabel(u.role):'Staff'}</span>
         ${showRoles ? '<span style="color:var(--muted);font-size:14px;margin-left:4px;">›</span>' : ''}
@@ -1684,16 +1693,16 @@ function _renderAdminHtml() {
     html += pending.map(u => `
       <div class="user-item" style="flex-wrap:wrap;gap:0.4rem">
         <div class="user-info" style="flex:1;min-width:0">
-          <div class="user-name-label">${u.name}</div>
-          <div class="user-role-label">@${u.username}${u.registeredAt ? ' · ' + u.registeredAt : ''}</div>
+          <div class="user-name-label">${_esc(u.name)}</div>
+          <div class="user-role-label">@${_esc(u.username)}${u.registeredAt ? ' · ' + u.registeredAt : ''}</div>
         </div>
-        <select id="role-sel-${u.username}" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:0.75rem;flex-shrink:0">
+        <select id="role-sel-${_esc(u.username)}" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:0.75rem;flex-shrink:0">
           <option value="door">Door</option>
           <option value="promoter">Promoter</option>
           <option value="admin">Admin</option>
         </select>
-        <button class="btn-approve" onclick="approveUser('${u.username}', (document.getElementById('role-sel-${u.username}')||{}).value||'door')">✓</button>
-        <button class="btn-revoke" style="border-color:rgba(255,59,59,0.4);color:#ef4444" onclick="deleteUser('${u.username}')">🗑</button>
+        <button class="btn-approve" onclick="approveUser('${_esc(u.username)}', (document.getElementById('role-sel-${_esc(u.username)}')||{}).value||'door')">✓</button>
+        <button class="btn-revoke" style="border-color:rgba(255,59,59,0.4);color:#ef4444" onclick="deleteUser('${_esc(u.username)}')">🗑</button>
       </div>`).join('');
   }
 
@@ -1701,15 +1710,15 @@ function _renderAdminHtml() {
   if (approved.length) {
     html += `<div class="section-label" style="margin-top:1rem">✅ ${tx('activeLbl')} (${approved.length})</div>`;
     html += approved.map(u => `
-      <div class="user-item" ${showRoles?`onclick="openRoleEditor('${u.username}','${u.role}','${u.name}','${u.uid||''}')" style="cursor:pointer"`:''}>
+      <div class="user-item" ${showRoles?`onclick="openRoleEditor('${_esc(u.username)}','${_esc(u.role)}','${_esc(u.name)}','${_esc(u.uid||'')}')" style="cursor:pointer"`:''}>
         <div class="user-info">
-          <div class="user-name-label">${u.name}</div>
-          <div class="user-role-label">@${u.username}${showRoles?' · '+roleLabel(u.role):''}${u.registeredAt ? ' · ' + u.registeredAt : ''}</div>
+          <div class="user-name-label">${_esc(u.name)}</div>
+          <div class="user-role-label">@${_esc(u.username)}${showRoles?' · '+roleLabel(u.role):''}${u.registeredAt ? ' · ' + u.registeredAt : ''}</div>
         </div>
         <span class="user-status approved">${showRoles?roleLabel(u.role):'Active'}</span>
         ${showRoles ? '<span style="color:var(--muted);font-size:14px;margin-left:4px;">›</span>' : ''}
-        ${showRoles ? `<button class="btn-revoke" onclick="event.stopPropagation();revokeUser('${u.username}')" style="margin-right:0.25rem" title="Suspend">⏸</button>` : ''}
-        <button class="btn-revoke" style="border-color:rgba(255,59,59,0.4);color:#ef4444" onclick="event.stopPropagation();deleteUser('${u.username}')" title="Delete">🗑</button>
+        ${showRoles ? `<button class="btn-revoke" onclick="event.stopPropagation();revokeUser('${_esc(u.username)}')" style="margin-right:0.25rem" title="Suspend">⏸</button>` : ''}
+        <button class="btn-revoke" style="border-color:rgba(255,59,59,0.4);color:#ef4444" onclick="event.stopPropagation();deleteUser('${_esc(u.username)}')" title="Delete">🗑</button>
       </div>`).join('');
   }
 

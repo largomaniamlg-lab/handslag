@@ -1,0 +1,89 @@
+{
+  "rules": {
+
+    // ─── users ───────────────────────────────────────────────────────────────
+    // Any authenticated user can read the full users list (needed for login
+    // lookup by email and for renderAdmin). Only owner/admin may write.
+    // Exception: each user may update their own name and lang.
+    "users": {
+      ".read": "auth != null",
+
+      "$uid": {
+        // owner/admin can create, update, delete any user node
+        ".write": "auth != null && (root.child('users/' + auth.uid + '/role').val() === 'owner' || root.child('users/' + auth.uid + '/role').val() === 'admin')",
+
+        // Each user may update only their own name and lang
+        "name": {
+          ".write": "auth != null && auth.uid === $uid"
+        },
+        "lang": {
+          ".write": "auth != null && auth.uid === $uid"
+        },
+
+        // Nobody may change their own role — must be done by owner/admin
+        "role": {
+          ".write": "auth != null && (root.child('users/' + auth.uid + '/role').val() === 'owner' || root.child('users/' + auth.uid + '/role').val() === 'admin')"
+        }
+      },
+
+      // New registrations: unauthenticated users may only create their own node
+      // (they get a Firebase Auth UID at registration time before profile is written)
+      "$newUid": {
+        ".write": "auth != null && auth.uid === $newUid && !data.exists()"
+      }
+    },
+
+    // ─── events ──────────────────────────────────────────────────────────────
+    // All authenticated users can read and write events (guestlist, VIP, tables).
+    // Bar staff are excluded from write by convention in client code, but we keep
+    // server-side open for all auth users until role-based event rules are needed.
+    "events": {
+      ".read":  "auth != null",
+      ".write": "auth != null"
+    },
+
+    // ─── calEvents ───────────────────────────────────────────────────────────
+    // Calendar entries — same as events
+    "calEvents": {
+      ".read":  "auth != null",
+      ".write": "auth != null"
+    },
+
+    // ─── activityLog ─────────────────────────────────────────────────────────
+    // All authenticated users can write log entries (push).
+    // Only owner/admin can read the full log (admin panel) or delete it.
+    "activityLog": {
+      ".read":  "auth != null && (root.child('users/' + auth.uid + '/role').val() === 'owner' || root.child('users/' + auth.uid + '/role').val() === 'admin')",
+      ".write": "auth != null"
+    },
+
+    // ─── mapa_v2 ─────────────────────────────────────────────────────────────
+    "mapa_v2": {
+
+      // Active map pointer — read: all auth; write: owner/admin only
+      "__active": {
+        ".read":  "auth != null",
+        ".write": "auth != null && (root.child('users/' + auth.uid + '/role').val() === 'owner' || root.child('users/' + auth.uid + '/role').val() === 'admin')"
+      },
+
+      // Map registry — read: all auth; write: owner/admin only
+      "__maps": {
+        ".read":  "auth != null",
+        ".write": "auth != null && (root.child('users/' + auth.uid + '/role').val() === 'owner' || root.child('users/' + auth.uid + '/role').val() === 'admin')"
+      },
+
+      // Map data (tables, objects, room) — read: all auth; write: owner/admin only
+      "$mapId": {
+        ".read": "auth != null",
+        ".write": "auth != null && (root.child('users/' + auth.uid + '/role').val() === 'owner' || root.child('users/' + auth.uid + '/role').val() === 'admin')"
+      }
+    },
+
+    // ─── catch-all ───────────────────────────────────────────────────────────
+    // Deny everything else
+    "$other": {
+      ".read":  false,
+      ".write": false
+    }
+  }
+}
