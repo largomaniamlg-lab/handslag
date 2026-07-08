@@ -40,7 +40,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 /* Info sheet */
 #info-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:300;}
 #info-overlay.open{display:block;}
-#info-sheet{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:2px solid var(--accent);border-radius:20px 20px 0 0;padding:20px 20px 40px;z-index:301;transform:translateY(100%);transition:transform 0.3s;}
+#info-sheet{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:2px solid var(--accent);border-radius:20px 20px 0 0;padding:20px 20px 40px;z-index:301;transform:translateY(100%);transition:transform 0.3s;max-height:85vh;overflow-y:auto;}
 #info-sheet.open{transform:translateY(0);}
 .sh-handle{width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 14px;}
 .sh-name{font-size:46px;font-weight:700;color:var(--accent);font-family:var(--font);line-height:1;}
@@ -58,6 +58,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .map-tab.active{background:rgba(180,79,255,0.2);border-color:var(--accent);color:var(--accent);font-weight:700;}
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--accent);color:#000;font-family:var(--mono);font-size:11px;font-weight:700;padding:10px 20px;border-radius:20px;transition:transform 0.3s;z-index:600;pointer-events:none;}
 #toast.show{transform:translateX(-50%) translateY(0);}
+@keyframes spin{from{transform-origin:center;transform:rotate(0deg);}to{transform-origin:center;transform:rotate(360deg);}}
 </style>
 </head>
 <body>
@@ -253,25 +254,74 @@ function goBack(){window.location.href='index.html';}
 
 var _currentInfoTable=null;
 
+function _saveTablesFirebase(){
+  if(!db||!currentMapId) return;
+  db.ref('mapa_v2/'+currentMapId+'/tables').set(tables.map(function(t){
+    var o={id:t.id,name:t.name,type:t.type};
+    if(t.type==='circle'){o.cx=t.cx;o.cy=t.cy;o.r=t.r||37;}
+    else{o.x=t.x;o.y=t.y;o.w=t.w||72;o.h=t.h||72;}
+    if(t.cap)o.cap=t.cap;
+    if(t.label)o.label=t.label;
+    if(t.linkedTo)o.linkedTo=t.linkedTo;
+    return o;
+  }));
+}
+
+function _highlightTable(t, on){
+  var existing=document.getElementById('link-highlight');
+  if(existing) existing.parentNode&&existing.parentNode.removeChild(existing);
+  if(!on||!t) return;
+  var layer=document.getElementById('tables-layer');
+  var cx,cy,r;
+  if(t.type==='circle'){cx=t.cx;cy=t.cy;r=(t.r||37)+12;}
+  else{cx=(t.x||0)+(t.w||72)/2;cy=(t.y||0)+(t.h||72)/2;r=Math.max(t.w||72,t.h||72)/2+12;}
+  var ring=svgEl('circle',{id:'link-highlight',cx:cx,cy:cy,r:r,fill:'none',stroke:'#b44fff','stroke-width':'3','stroke-dasharray':'6,3',opacity:'0.9','pointer-events':'none'});
+  ring.style.animation='spin 2s linear infinite';
+  layer.appendChild(ring);
+}
+
+function _linkSearch(){
+  var v=(document.getElementById('link-search')||{}).value||'';
+  var src=_currentInfoTable;
+  if(!src) return;
+  var others=tables.filter(function(x){return x.id!==src.id;});
+  var filtered=v?others.filter(function(x){
+    return String(x.name).toLowerCase().indexOf(v.toLowerCase())>=0||
+           (x.label||'').toLowerCase().indexOf(v.toLowerCase())>=0;
+  }):others;
+  var items=filtered.map(function(x){
+    var already=x.linkedTo&&x.linkedTo!==src.id;
+    return '<button onclick="doLink('+x.id+')" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 14px;margin-bottom:6px;background:var(--surface2);border:1px solid '+(already?'rgba(180,79,255,0.3)':'var(--border)')+';border-radius:10px;color:var(--text);font-family:var(--font);font-size:16px;font-weight:700;cursor:pointer;">'
+      +'<span style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;">'+x.name+'</span>'
+      +(already?'<span style="color:#b44fff;font-size:11px;">&#128279; Ya vinculada</span>':'<span>Mesa '+x.name+'</span>')
+      +'</button>';
+  }).join('');
+  if(!filtered.length) items='<div style="color:var(--muted);font-family:var(--mono);font-size:12px;text-align:center;padding:16px;">Sin resultados</div>';
+  var ll=document.getElementById('link-list');
+  if(ll) ll.innerHTML=items;
+}
+
 function linkTable(t){
   _currentInfoTable=t;
-  var others=tables.filter(function(x){return x.id!==t.id;});
-  var list=others.map(function(x){
-    return '<button onclick="doLink('+x.id+')" style="display:block;width:100%;text-align:left;padding:8px 12px;margin-bottom:6px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font);font-size:14px;cursor:pointer;">'
-      +(x.linkedTo?'🔗 ':'')+(x.label||x.name)+'</button>';
-  }).join('');
-  document.getElementById('info-guests').innerHTML='<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Select table to link:</div>'+list+'<button onclick="openInfo(_currentInfoTable)" style="width:100%;padding:8px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:var(--font);font-size:13px;cursor:pointer;margin-top:4px;">Cancel</button>';
+  _highlightTable(t, true);
+  document.getElementById('info-guests').innerHTML=
+    '<div style="font-family:var(--mono);font-size:11px;color:var(--accent);margin-bottom:12px;text-transform:uppercase;letter-spacing:1px;">Vincular mesa '+t.name+' con:</div>'
+    +'<input id="link-search" type="text" placeholder="Buscar mesa..." oninput="_linkSearch()" style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:var(--font);font-size:14px;margin-bottom:12px;box-sizing:border-box;">'
+    +'<div id="link-list"></div>'
+    +'<button onclick="_highlightTable(null,false);openInfo(_currentInfoTable)" style="width:100%;padding:10px;background:transparent;border:1px solid var(--border);border-radius:10px;color:var(--muted);font-family:var(--font);font-size:13px;cursor:pointer;margin-top:4px;">Cancelar</button>';
+  _linkSearch();
 }
 
 function doLink(targetId){
   var src=_currentInfoTable;
   var tgt=tables.find(function(x){return x.id===targetId;});
   if(!src||!tgt) return;
-  var groupId=src.id+'-'+tgt.id;
-  src.linkedTo=tgt.id; src.linkedGroup=groupId;
-  tgt.linkedTo=src.id; tgt.linkedGroup=groupId;
-  saveTables();
-  toast('🔗 '+( src.label||src.name)+' linked to '+(tgt.label||tgt.name));
+  src.linkedTo=tgt.id;
+  tgt.linkedTo=src.id;
+  _highlightTable(null, false);
+  _saveTablesFirebase();
+  render();
+  toast('🔗 Mesa '+src.name+' → Mesa '+tgt.name);
   closeInfo();
 }
 
@@ -281,8 +331,9 @@ function doUnlink(tableId){
   var partner=tables.find(function(x){return x.id===t.linkedTo;});
   t.linkedTo=null; t.linkedGroup=null;
   if(partner){partner.linkedTo=null;partner.linkedGroup=null;}
-  saveTables();
-  toast('Unlinked');
+  _saveTablesFirebase();
+  render();
+  toast('Desvinculado');
   closeInfo();
 }
 
