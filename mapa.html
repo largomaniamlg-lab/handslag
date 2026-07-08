@@ -52,6 +52,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 #legend{display:flex;gap:14px;padding:5px 14px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;}
 .leg{font-family:var(--mono);font-size:9px;color:var(--muted);display:flex;align-items:center;gap:4px;}
 .leg-dot{width:8px;height:8px;border-radius:50%;border:1.5px solid #33312c;}
+#map-tabs{display:flex;overflow-x:auto;gap:6px;padding:6px 10px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+#map-tabs::-webkit-scrollbar{display:none;}
+.map-tab{flex-shrink:0;padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);font-family:var(--mono);font-size:11px;cursor:pointer;white-space:nowrap;touch-action:manipulation;}
+.map-tab.active{background:rgba(180,79,255,0.2);border-color:var(--accent);color:var(--accent);font-weight:700;}
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--accent);color:#000;font-family:var(--mono);font-size:11px;font-weight:700;padding:10px 20px;border-radius:20px;transition:transform 0.3s;z-index:600;pointer-events:none;}
 #toast.show{transform:translateX(-50%) translateY(0);}
 </style>
@@ -71,6 +75,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     <div class="spacer"></div>
     <div id="sync-dot"></div>
   </div>
+  <div id="map-tabs"></div>
   <div id="modebar">
     <span id="hint" style="flex:1;text-align:center"></span>
   </div>
@@ -172,9 +177,62 @@ function checkAuth(){ dbg('checkAuth called'); grantAccess({name:'Guest',role:'d
   }
   grantAccess(user);
 }
+var currentMapId=null, _mapListeners=[];
+function detachMapListeners(){_mapListeners.forEach(function(f){f();});_mapListeners=[];}
+
+function switchToMap(mapId){
+  if(!db)return;
+  detachMapListeners();
+  currentMapId=mapId;
+  tables=[];objects=[];room={w:1260,h:800};
+  render();
+  // highlight active tab
+  document.querySelectorAll('.map-tab').forEach(function(t){
+    t.classList.toggle('active',t.dataset.id===mapId);
+  });
+  dbg('switching to: '+mapId);
+  // room
+  db.ref('mapa_v2/'+mapId+'/room').once('value',function(s){
+    var r=s.val();if(r&&r.w&&r.h){room={w:r.w,h:r.h};applyRoomVB(room);dbg('room: '+r.w+'x'+r.h);}
+  });
+  // objects
+  var oRef=db.ref('mapa_v2/'+mapId+'/objects');
+  var oHandler=oRef.on('value',function(s){
+    var raw=s.val();
+    objects=raw?(Array.isArray(raw)?raw:Object.values(raw)).filter(function(x){return x&&typeof x==='object';}):[];
+    render();
+  });
+  _mapListeners.push(function(){oRef.off('value',oHandler);});
+  // tables
+  var tRef=db.ref('mapa_v2/'+mapId+'/tables');
+  var tHandler=tRef.on('value',function(s){
+    var raw=s.val();
+    if(raw){
+      var arr=(Array.isArray(raw)?raw:Object.values(raw)).filter(function(x){return x&&x!==null&&typeof x==='object'&&!('__v' in x);});
+      tables=arr;
+      if(arr.length)nextId=Math.max(nextId,...arr.map(function(t){return t.id||0;}))+1;
+      dbg('tables: '+arr.length);
+    } else {tables=[];dbg('no tables');}
+    render();
+  });
+  _mapListeners.push(function(){tRef.off('value',tHandler);});
+}
+
+function buildMapTabs(mapIds, defaultId){
+  var bar=document.getElementById('map-tabs');
+  bar.innerHTML='';
+  mapIds.forEach(function(id){
+    var btn=document.createElement('button');
+    btn.className='map-tab'+(id===defaultId?' active':'');
+    btn.dataset.id=id;
+    btn.textContent=id;
+    btn.onclick=function(){switchToMap(id);};
+    bar.appendChild(btn);
+  });
+}
+
 function grantAccess(user){
   dbg('grantAccess started');
-  // Hide lock FIRST — nothing else should keep users stuck on the loading screen
   document.getElementById('lock').style.display='none';
   document.getElementById('app').style.display='flex';
   dbg('lock hidden, app shown');
@@ -183,40 +241,22 @@ function grantAccess(user){
   try{render();dbg('render OK');}catch(e){dbg('render ERR: '+e.message);}
   if(db){loadTableStats();dbg('loadTableStats called');}
   if(db){db.ref('.info/connected').on('value',function(s){document.getElementById('sync-dot').className=s.val()?'':'off';});}
-  if(db){db.ref('mapa_v2/__active').once('value', function(asnap) {
-    var activeMap = asnap.val() || 'main';
-    dbg('active map: '+activeMap);
-    // Load room geometry
-    db.ref('mapa_v2/'+activeMap+'/room').once('value',function(rsnap){
-      var r=rsnap.val();
-      if(r&&r.w&&r.h){room={w:r.w,h:r.h};applyRoomVB(room);dbg('room: '+r.w+'x'+r.h);}
+  if(db){
+    // Load map list and active map in parallel
+    Promise.all([
+      db.ref('mapa_v2/__maps').once('value'),
+      db.ref('mapa_v2/__active').once('value')
+    ]).then(function(snaps){
+      var mapsSnap=snaps[0], activeSnap=snaps[1];
+      var mapsObj=mapsSnap.val()||{};
+      var mapIds=Object.keys(mapsObj).sort();
+      var activeMap=activeSnap.val()||mapIds[0]||'main';
+      if(mapIds.length===0)mapIds=[activeMap];
+      dbg('maps: '+mapIds.join(',')+' active: '+activeMap);
+      buildMapTabs(mapIds, activeMap);
+      switchToMap(activeMap);
     });
-    // Load objects (background elements)
-    db.ref('mapa_v2/'+activeMap+'/objects').on('value',function(osnap){
-      var raw=osnap.val();
-      if(raw){
-        var arr=Array.isArray(raw)?raw:Object.values(raw);
-        objects=arr.filter(function(x){return x&&typeof x==='object';});
-        dbg('objects: '+objects.length);
-      } else { objects=[]; }
-      render();
-    });
-    // Load tables
-    db.ref('mapa_v2/'+activeMap+'/tables').on('value',function(snap){
-      var raw=snap.val();
-      dbg('Firebase tables: '+(raw?'object':'null')+' map='+activeMap);
-      if(raw){
-        var arr=Array.isArray(raw)?raw:Object.values(raw);
-        arr=arr.filter(function(x){return x&&x!==null&&typeof x==='object'&&!('__v' in x);});
-        dbg('tables: '+arr.length);
-        if(arr.length>0){
-          tables=arr;
-          nextId=Math.max(nextId,...tables.map(function(t){return t.id||0;}))+1;
-        }
-      } else { tables=[]; dbg('no tables in Firebase'); }
-      render();
-    });
-  });} // close db.ref __active + if(db)
+  }
 }
 function denyAccess(){
   document.getElementById('lock-msg').innerHTML=mt.noSession;
