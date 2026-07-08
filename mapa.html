@@ -598,10 +598,13 @@ function render(){
 }
 
 
+var _resvMeta=null; // {cat, guestId} for edits; null for new
+
 function openInfo(t){
   _currentInfoTable=t;
   var _u=null;try{_u=JSON.parse(sessionStorage.getItem('hs_currentUser')||localStorage.getItem('hs_currentUser'));}catch(e){}
   var _isPriv=_u&&(_u.role==='owner'||_u.role==='admin'||_u.username==='maline');
+  var _canResv=!!_u; // any logged-in user can add/edit reservations
   var linkBtn=document.getElementById('info-link-btn');
   if(t.linkedTo){
     var partner=tables.find(function(x){return x.id===t.linkedTo;});
@@ -620,21 +623,23 @@ function openInfo(t){
   var timeEl=document.getElementById('info-time');
   if(t.timeFrom||t.timeTo){timeEl.textContent='🕐 '+(t.timeFrom||'?')+' – '+(t.timeTo||'?');timeEl.style.display='block';}
   else{timeEl.style.display='none';}
-  var stat=tableStats[String(t.name).toLowerCase()];
   document.getElementById('info-count').textContent='';
   var el=document.getElementById('info-guests');
   el.innerHTML='<span style="font-family:var(--mono);font-size:11px;color:var(--muted)">'+mt.loading+'</span>';
   var today=new Date().toISOString().slice(0,10);
   db.ref('events/'+today).once('value',function(snap){
-    var all=snap.val()||{};var guests=[];
-    Object.values(all).forEach(function(cat){
-      var list=Array.isArray(cat)?cat:Object.values(cat);
+    var all=snap.val()||{};
+    var guests=[];
+    // collect guests with their category for edit
+    Object.keys(all).forEach(function(cat){
+      var catObj=all[cat]||{};
+      var list=Array.isArray(catObj)?catObj:Object.values(catObj);
       list.forEach(function(g){
         if(g&&g.table&&String(g.table).toLowerCase()===String(t.name).toLowerCase())
-          guests.push(g);
+          guests.push({g:g,cat:cat});
       });
     });
-    var totalAssigned=guests.reduce(function(s,g){return s+1+(parseInt(g.guests)||0);},0);
+    var totalAssigned=guests.reduce(function(s,x){return s+1+(parseInt(x.g.guests)||0);},0);
     var maxP=t.cap?parseInt(t.cap):0;
     var capEl=document.getElementById('info-cap-warn');
     if(capEl){capEl.remove();}
@@ -646,16 +651,30 @@ function openInfo(t){
       capDiv.textContent=(over?'⚠ EXCEDIDA: ':totalAssigned===maxP?'✓ LLENA: ':'● ')+totalAssigned+' / '+maxP+' personas';
       el.parentNode.insertBefore(capDiv,el);
     }
-    if(!guests.length){el.innerHTML='<span style="font-family:var(--mono);font-size:12px;color:var(--muted)">'+mt.noGuests+'</span>';document.getElementById('info-count').textContent='';return;}
+    var addBtn=_canResv?'<button onclick="openResvForm(null,null)" style="width:100%;padding:10px;margin-top:10px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;">+ Añadir reserva</button>':'';
+    if(!guests.length){
+      el.innerHTML='<div style="font-family:var(--mono);font-size:12px;color:var(--muted);padding:6px 0;">'+mt.noGuests+'</div>'+addBtn;
+      document.getElementById('info-count').textContent='';
+      return;
+    }
     document.getElementById('info-count').textContent='';
-    el.innerHTML=guests.map(function(g){
+    var btnBase='padding:6px 10px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:none;font-family:var(--font);';
+    el.innerHTML=guests.map(function(entry){
+      var g=entry.g,cat=entry.cat;
       var total=1+(parseInt(g.guests)||0);
       var lines=[];
       lines.push('<div style="border-bottom:1px solid rgba(255,255,255,0.06);padding:10px 0;">');
-      lines.push('<div style="display:flex;align-items:baseline;justify-content:space-between;">');
-      lines.push('<div style="font-family:var(--font);font-size:20px;font-weight:700;color:'+(g.checkedIn?'var(--accent)':'var(--text)')+';">'+(g.checkedIn?'✓ ':'○ ')+g.name+'</div>');
-      lines.push('<div style="font-family:var(--mono);font-size:13px;color:var(--accent);font-weight:700;">'+total+'p</div>');
-      lines.push('</div>');
+      // header row: name + action buttons
+      lines.push('<div style="display:flex;align-items:center;gap:8px;justify-content:space-between;">');
+      lines.push('<div style="font-family:var(--font);font-size:19px;font-weight:700;color:'+(g.checkedIn?'var(--accent)':'var(--text)')+';flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(g.checkedIn?'✓ ':'○ ')+g.name+'</div>');
+      lines.push('<div style="display:flex;gap:6px;flex-shrink:0;align-items:center;">');
+      lines.push('<span style="font-family:var(--mono);font-size:13px;color:var(--accent);font-weight:700;">'+total+'p</span>');
+      if(_canResv){
+        var chkColor=g.checkedIn?'background:#1a4a2e;color:#27ae60;':'background:rgba(255,255,255,0.07);color:var(--muted);';
+        lines.push('<button onclick="toggleCheckinMap('+g.id+',\''+cat+'\')" style="'+btnBase+chkColor+'" title="Check-in">'+(g.checkedIn?'✓ In':'○')+'</button>');
+        lines.push('<button onclick="openResvForm('+g.id+',\''+cat+'\')" style="'+btnBase+'background:rgba(255,255,255,0.07);color:var(--text);" title="Editar">✏</button>');
+      }
+      lines.push('</div></div>');
       if(g.timeFrom||g.timeTo){
         var holdMin=g.paid?60:30;
         var nowMin=new Date().getHours()*60+new Date().getMinutes();
@@ -671,7 +690,7 @@ function openInfo(t){
       if(g.notes) lines.push('<div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:4px;white-space:pre-wrap">'+g.notes+'</div>');
       lines.push('</div>');
       return lines.join('');
-    }).join('');
+    }).join('')+addBtn;
   });
   document.getElementById('info-overlay').classList.add('open');
   document.getElementById('info-sheet').classList.add('open');
@@ -679,6 +698,111 @@ function openInfo(t){
 function closeInfo(){
   document.getElementById('info-overlay').classList.remove('open');
   document.getElementById('info-sheet').classList.remove('open');
+}
+
+function _rfS(){return 'width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:var(--font);font-size:15px;box-sizing:border-box;';}
+function _esc(s){return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+
+function openResvForm(guestId, cat){
+  var t=_currentInfoTable;
+  if(!t) return;
+  if(guestId){
+    var today=new Date().toISOString().slice(0,10);
+    db.ref('events/'+today+'/'+cat+'/'+guestId).once('value',function(snap){
+      _resvMeta={cat:cat,guestId:guestId};
+      _renderResvForm(t, snap.val());
+    });
+  } else {
+    _resvMeta=null;
+    _renderResvForm(t, null);
+  }
+}
+
+function _renderResvForm(t, g){
+  var now=new Date();
+  var defTime=String(now.getHours()).padStart(2,'0')+':00';
+  var el=document.getElementById('info-guests');
+  el.innerHTML=
+    '<div style="font-family:var(--mono);font-size:11px;color:var(--accent);margin-bottom:14px;text-transform:uppercase;letter-spacing:1px;">'
+    +(g?'Editar reserva':'Nueva reserva · Mesa '+t.name)+'</div>'
+    +'<div style="display:flex;flex-direction:column;gap:10px;">'
+    +'<input id="rf-name" type="text" placeholder="Nombre *" value="'+_esc(g?g.name:'')
+    +'" style="'+_rfS()+'">'
+    +'<div style="display:flex;gap:8px;">'
+    +'<div style="flex:1;"><div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:4px;">DESDE</div>'
+    +'<input id="rf-from" type="time" value="'+(g&&g.timeFrom?g.timeFrom:defTime)+'" style="'+_rfS()+'"></div>'
+    +'<div style="flex:1;"><div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:4px;">HASTA</div>'
+    +'<input id="rf-to" type="time" value="'+(g&&g.timeTo?g.timeTo:'')
+    +'" style="'+_rfS()+'"></div>'
+    +'</div>'
+    +'<div><div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:4px;">INVITADOS ADICIONALES</div>'
+    +'<input id="rf-guests" type="number" min="0" max="99" value="'+(g?parseInt(g.guests)||0:0)
+    +'" style="width:80px;text-align:center;'+_rfS()+'"></div>'
+    +'<div><div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:4px;">NOTAS</div>'
+    +'<textarea id="rf-notes" placeholder="Opcional..." rows="2" style="resize:none;'+_rfS()+'">'+_esc(g&&g.notes?g.notes:'')+'</textarea></div>'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;margin-top:14px;">'
+    +'<button onclick="saveResvForm()" style="flex:2;padding:12px;background:var(--accent);border:none;border-radius:10px;color:#000;font-family:var(--font);font-size:15px;font-weight:700;cursor:pointer;">Guardar</button>'
+    +'<button onclick="openInfo(_currentInfoTable)" style="flex:1;padding:12px;background:transparent;border:1px solid var(--border);border-radius:10px;color:var(--muted);font-family:var(--font);font-size:14px;cursor:pointer;">Cancelar</button>'
+    +'</div>';
+  document.getElementById('info-sheet').scrollTop=0;
+  setTimeout(function(){var n=document.getElementById('rf-name');if(n)n.focus();},120);
+}
+
+function saveResvForm(){
+  var t=_currentInfoTable;
+  if(!t) return;
+  var name=(document.getElementById('rf-name').value||'').trim();
+  if(!name){toast('Introduce un nombre');return;}
+  var today=new Date().toISOString().slice(0,10);
+  var now=new Date();
+  var timeNow=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  var _u=null;try{_u=JSON.parse(sessionStorage.getItem('hs_currentUser')||localStorage.getItem('hs_currentUser'));}catch(e){}
+  var cat=_resvMeta?_resvMeta.cat:'tables';
+  var gId=_resvMeta?_resvMeta.guestId:Date.now();
+  // Read existing record to preserve checkedIn state etc.
+  var _doSave=function(existing){
+    var guest={
+      id:gId,
+      name:name,
+      table:String(t.name),
+      guests:parseInt(document.getElementById('rf-guests').value)||0,
+      timeFrom:document.getElementById('rf-from').value||'',
+      timeTo:document.getElementById('rf-to').value||'',
+      notes:(document.getElementById('rf-notes').value||'').trim(),
+      paymentType:existing?existing.paymentType||'free':'free',
+      paymentAmount:existing?existing.paymentAmount||0:0,
+      checkedIn:existing?existing.checkedIn||false:false,
+      guestsIn:existing?existing.guestsIn||0:0,
+      checkedAt:existing?existing.checkedAt||'':'',
+      addedBy:_u?(_u.username||_u.name):'map',
+      addedAt:existing?existing.addedAt||timeNow:timeNow,
+    };
+    db.ref('events/'+today+'/'+cat+'/'+gId).set(guest).then(function(){
+      toast(existing?'Reserva actualizada ✓':'Reserva añadida ✓');
+      openInfo(t);
+    });
+  };
+  if(_resvMeta){
+    db.ref('events/'+today+'/'+cat+'/'+gId).once('value',function(s){_doSave(s.val());});
+  } else {
+    _doSave(null);
+  }
+}
+
+function toggleCheckinMap(guestId, cat){
+  var today=new Date().toISOString().slice(0,10);
+  db.ref('events/'+today+'/'+cat+'/'+guestId).once('value',function(snap){
+    var g=snap.val();
+    if(!g) return;
+    g.checkedIn=!g.checkedIn;
+    var now=new Date();
+    g.checkedAt=g.checkedIn?String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0'):'';
+    db.ref('events/'+today+'/'+cat+'/'+guestId).set(g).then(function(){
+      toast(g.checkedIn?'✓ Check-in: '+g.name:'○ Check-out: '+g.name);
+      openInfo(_currentInfoTable);
+    });
+  });
 }
 
 function toast(msg){var el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(function(){el.classList.remove('show');},2200);}
