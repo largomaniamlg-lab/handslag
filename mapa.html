@@ -191,14 +191,15 @@ function checkAuth(){ grantAccess({name:'Guest',role:'door'}); return; // auth b
   grantAccess(user);
 }
 function grantAccess(user){
-  applyMapLang();
+  // Hide lock FIRST — nothing else should keep users stuck on the loading screen
   document.getElementById('lock').style.display='none';
   document.getElementById('app').style.display='flex';
+  try{applyMapLang();}catch(e){}
   tables=DEFAULT_TABLES.map(function(t){return Object.assign({},t);});
-  render();
-  loadTableStats();
-  db.ref('.info/connected').on('value',function(s){document.getElementById('sync-dot').className=s.val()?'':'off';});
-  db.ref('mapa_v2/__active').once('value', function(asnap) {
+  try{render();}catch(e){}
+  if(db){loadTableStats();}
+  if(db){db.ref('.info/connected').on('value',function(s){document.getElementById('sync-dot').className=s.val()?'':'off';});}
+  if(db){db.ref('mapa_v2/__active').once('value', function(asnap) {
     var activeMap = asnap.val() || 'main';
   db.ref('mapa_v2/'+activeMap+'/tables').on('value',function(snap){
     var raw=snap.val();
@@ -219,6 +220,7 @@ function grantAccess(user){
     }
     render();
   });
+  });} // close db.ref __active + if(db)
 }
 function denyAccess(){
   document.getElementById('lock-msg').innerHTML=mt.noSession;
@@ -263,12 +265,14 @@ function doUnlink(tableId){
   closeInfo();
 }
 function saveTables(){
+  if(!db) return;
   var data=tables.map(function(t){return Object.assign({},t);});
   data.__v=2;
   db.ref('mapa_v2/main/tables').set(data);
 }
 
 function loadTableStats(){
+  if(!db) return;
   var today=new Date().toISOString().slice(0,10);
   db.ref('events/'+today).on('value',function(snap){
     var all=snap.val()||{};
