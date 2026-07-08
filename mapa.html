@@ -150,8 +150,9 @@ function applyMapLang() {
   var b2=document.getElementById('btn-back-lock'); if(b2) b2.textContent=mt.back;
 }
 const FB_CFG={apiKey:"AIzaSyBR0HsO3WM-Db-1QACcrY789oiXaCR8zpA",authDomain:"handslag-fdd42.firebaseapp.com",databaseURL:"https://handslag-fdd42-default-rtdb.europe-west1.firebasedatabase.app",projectId:"handslag-fdd42",storageBucket:"handslag-fdd42.appspot.com",messagingSenderId:"1090291987706",appId:"1:1090291987706:web:0effe68dc7e7faa1ef06cd"};
-firebase.initializeApp(FB_CFG);
-const db=firebase.database();
+var _fbApp;
+try{_fbApp=firebase.initializeApp(FB_CFG);}catch(e){try{_fbApp=firebase.app();}catch(e2){_fbApp=null;}}
+const db=_fbApp?firebase.database(_fbApp):null;
 
 // Default tables from the official SVG floor plan
 const DEFAULT_TABLES=[
