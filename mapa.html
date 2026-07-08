@@ -234,14 +234,17 @@ function switchToMap(mapId){
     var raw=s.val();
     if(raw){
       var arr=(Array.isArray(raw)?raw:Object.values(raw)).filter(function(x){return x&&x!==null&&typeof x==='object'&&!('__v' in x);});
-      // Migrate legacy linkedTo → links array
+      // Migrate legacy linkedTo → links array (only if links field not already present)
+      var needsMigration=false;
       arr.forEach(function(t){
-        if(t.linkedTo&&(!t.links||!t.links.length)){
+        if(t.linkedTo&&!('links' in t)){
           t.links=[t.linkedTo];
           delete t.linkedTo;
+          needsMigration=true;
         }
         if(!t.links)t.links=[];
       });
+      if(needsMigration) setTimeout(function(){_saveTablesFirebase();},200);
       tables=arr;
       if(arr.length)nextId=Math.max(nextId,...arr.map(function(t){return t.id||0;}))+1;
       dbg('tables: '+arr.length);
@@ -369,13 +372,16 @@ function linkTable(t){
 }
 
 function doLink(targetId){
-  var src=_currentInfoTable;
+  // Always resolve from current tables array — _currentInfoTable may be stale if Firebase listener fired
+  var srcId=_currentInfoTable?_currentInfoTable.id:null;
+  var src=srcId!=null?tables.find(function(x){return x.id===srcId;}):null;
   var tgt=tables.find(function(x){return x.id===targetId;});
   if(!src||!tgt) return;
   if(!src.links)src.links=[];
   if(!tgt.links)tgt.links=[];
   if(src.links.indexOf(tgt.id)<0)src.links.push(tgt.id);
   if(tgt.links.indexOf(src.id)<0)tgt.links.push(src.id);
+  _currentInfoTable=src;
   _highlightTable(null, false);
   _saveTablesFirebase();
   render();
@@ -389,6 +395,7 @@ function doUnlink(tableId, partnerId){
   var partner=tables.find(function(x){return x.id===partnerId;});
   if(t.links)t.links=t.links.filter(function(id){return id!==partnerId;});
   if(partner&&partner.links)partner.links=partner.links.filter(function(id){return id!==tableId;});
+  _currentInfoTable=t;
   _saveTablesFirebase();
   render();
   toast(mt.unlinkBtn+' ✓');
