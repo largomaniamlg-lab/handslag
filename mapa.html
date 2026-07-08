@@ -667,14 +667,10 @@ function openInfo(t){
     linkBtn.style.display='none';
   }
   var nameEl=document.getElementById('info-name');
-  nameEl.textContent=t.name;
-  nameEl.onclick=null;
-  nameEl.style.cursor='';
-  nameEl.title='';
   if(_isPriv){
-    nameEl.style.cursor='pointer';
-    nameEl.title=mt.tapToRename||'Tap to rename';
-    nameEl.onclick=function(){renameTable(t);};
+    nameEl.innerHTML='<span style="cursor:pointer" onclick="renameTable(_currentInfoTable)">'+t.name+'</span><button onclick="renameTable(_currentInfoTable)" style="margin-left:10px;background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer;vertical-align:middle;padding:0;line-height:1;" title="'+(mt.tapToRename||'Rename')+'">✏️</button>';
+  } else {
+    nameEl.textContent=t.name;
   }
   document.getElementById('info-sub').textContent=t.sub||'';
   var timeEl=document.getElementById('info-time');
