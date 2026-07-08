@@ -560,7 +560,7 @@ body.light-mode .form-input, body.light-mode .form-select { background:#f0f0f0; 
   </div>
 
   <!-- Feedback -->
-  <div class="section-label">📝 Feedback</div>
+  <div class="section-label" id="lbl-feedback-title">📝 Feedback</div>
   <div style="margin-top:0.5rem;margin-bottom:1.5rem">
     <div style="display:flex;gap:0.5rem;margin-bottom:0.5rem;flex-wrap:wrap" id="feedback-type-btns">
       <button onclick="setFeedbackType('bug')"     class="lang-btn" id="fbt-bug"     style="flex:1;padding:0.5rem;min-width:60px">🐛 Bug</button>
@@ -569,7 +569,7 @@ body.light-mode .form-input, body.light-mode .form-select { background:#f0f0f0; 
       <button onclick="setFeedbackType('idea')"    class="lang-btn" id="fbt-idea"    style="flex:1;padding:0.5rem;min-width:60px">💡 Idea</button>
     </div>
     <textarea id="feedback-text" placeholder="Escribe tu comentario..." style="width:100%;padding:0.6rem 0.8rem;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:var(--font);font-size:0.9rem;resize:none;height:80px;box-sizing:border-box;margin-bottom:0.5rem"></textarea>
-    <button onclick="submitFeedback()" class="btn-primary" style="width:100%;padding:0.65rem">Enviar →</button>
+    <button onclick="submitFeedback()" id="btn-feedback-send" class="btn-primary" style="width:100%;padding:0.65rem">Enviar →</button>
     <div id="feedback-ok" style="display:none;color:var(--success);font-family:var(--mono);font-size:0.7rem;text-align:center;margin-top:0.4rem">✓ Feedback enviado</div>
   </div>
 
@@ -915,6 +915,8 @@ const T = {
     promoListCol:'List', promoInCol:'In',
     changePw:'Change', cancelPw:'Cancel', pwMin6:'At least 6 characters', pwMismatch:'Passwords do not match', pwUpdated:'Password updated!', loginAgain:'Please log in again first',
     nameUpdated:'Name updated',
+    feedbackTitle:'Feedback', feedbackPlaceholder:'Write your comment...', feedbackSend:'Send →', feedbackOk:'✓ Feedback sent',
+    fbTypeBug:'🐛 Bug', fbTypeUx:'🎨 UX', fbTypeImprove:'⚡ Improve', fbTypeIdea:'💡 Idea',
   },
   no: {
     signin:'Logg inn', register:'Be om tilgang', noAccount:'Ingen konto? Be om tilgang',
@@ -941,6 +943,8 @@ const T = {
     promoListCol:'Liste', promoInCol:'Inn',
     changePw:'Endre', cancelPw:'Avbryt', pwMin6:'Minst 6 tegn', pwMismatch:'Passordene stemmer ikke', pwUpdated:'Passord oppdatert!', loginAgain:'Logg inn på nytt først',
     nameUpdated:'Navn oppdatert',
+    feedbackTitle:'Tilbakemelding', feedbackPlaceholder:'Skriv kommentaren din...', feedbackSend:'Send →', feedbackOk:'✓ Tilbakemelding sendt',
+    fbTypeBug:'🐛 Bug', fbTypeUx:'🎨 UX', fbTypeImprove:'⚡ Forbedring', fbTypeIdea:'💡 Idé',
   },
   es: {
     signin:'Iniciar sesión', register:'Solicitar acceso', noAccount:'¿Sin cuenta? Solicitar acceso',
@@ -967,6 +971,8 @@ const T = {
     promoListCol:'Lista', promoInCol:'Dentro',
     changePw:'Cambiar', cancelPw:'Cancelar', pwMin6:'Mínimo 6 caracteres', pwMismatch:'Las contraseñas no coinciden', pwUpdated:'¡Contraseña actualizada!', loginAgain:'Inicia sesión de nuevo primero',
     nameUpdated:'Nombre actualizado',
+    feedbackTitle:'Feedback', feedbackPlaceholder:'Escribe tu comentario...', feedbackSend:'Enviar →', feedbackOk:'✓ Feedback enviado',
+    fbTypeBug:'🐛 Bug', fbTypeUx:'🎨 UX', fbTypeImprove:'⚡ Mejora', fbTypeIdea:'💡 Idea',
   }
 };
 
@@ -1014,6 +1020,15 @@ function applyAppLang() {
   set('lbl-settings-theme',  L.settingsTheme);
   set('lbl-settings-size',   L.settingsSize);
   set('lbl-activity-log',    L.settingsActivity);
+  set('lbl-feedback-title',  '📝 ' + L.feedbackTitle);
+  set('btn-feedback-send',   L.feedbackSend);
+  set('feedback-ok',         L.feedbackOk);
+  set('fbt-bug',    L.fbTypeBug);
+  set('fbt-ux',     L.fbTypeUx);
+  set('fbt-mejora', L.fbTypeImprove);
+  set('fbt-idea',   L.fbTypeIdea);
+  const ftxt = document.getElementById('feedback-text');
+  if (ftxt) ftxt.placeholder = L.feedbackPlaceholder;
   set('btn-change-pw',       (L.navSettings==='Innst.' ? 'LAGRE →' : 'SAVE →'));
   document.querySelectorAll('.filter-tabs .tab').forEach(btn => {
     const oc = btn.getAttribute('onclick') || '';
