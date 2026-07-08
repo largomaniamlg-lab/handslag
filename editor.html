@@ -108,6 +108,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     <button class="hbtn" onclick="exportPNG()" title="Exportar PNG">⬇ PNG</button>
     <div id="online-status" style="font-family:var(--mono);font-size:10px;padding:3px 7px;border-radius:5px;background:rgba(255,255,255,0.05);color:var(--muted);">⚫</div>
     <button id="push-btn" onclick="pushToApp()" style="display:none;font-family:var(--mono);font-size:10px;background:#27ae60;color:#fff;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;">▲ PUSH</button>
+    <button id="push-all-btn" onclick="pushAllMaps()" style="display:none;font-family:var(--mono);font-size:10px;background:#1a6e3c;color:#fff;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;">▲ PUSH TODOS</button>
     <div id="sync-dot"></div>
   </div>
   <div id="body">
@@ -397,9 +398,10 @@ function saveTables(noSnap){ if(!noSnap)snapshot(); saveLocal(); updatePendingDo
 function updatePendingDot(p){ var d=document.getElementById('sync-dot'); if(d)d.style.background=p?(isOnline?'#f39c12':'#e05252'):'#27ae60'; }
 function updateOnlineUI(online){
   isOnline=online;
-  var s=document.getElementById('online-status'),b=document.getElementById('push-btn');
+  var s=document.getElementById('online-status'),b=document.getElementById('push-btn'),b2=document.getElementById('push-all-btn');
   if(s){s.textContent=online?'🟢':'⚫';s.style.color=online?'#27ae60':'var(--muted)';}
   if(b)b.style.display=online?'inline-block':'none';
+  if(b2)b2.style.display=online?'inline-block':'none';
   updatePendingDot(true);
 }
 function pushToApp(){
@@ -423,6 +425,36 @@ function pushToApp(){
     updatePendingDot(false);toast('✓ Cambios subidos a la app');
   })
   .catch(function(e){if(btn){btn.textContent='▲ PUSH';btn.disabled=false;}toast('Error: '+e.message);});
+}
+
+function pushAllMaps(){
+  if(!isOnline){toast('Sin conexión');return;}
+  var btn=document.getElementById('push-all-btn');
+  if(btn){btn.textContent='⏳';btn.disabled=true;}
+  var ids=mapsList.slice(); // copy of all map ids
+  var done=0,errors=0;
+  function pushOne(id){
+    var t=loadLocal(id)||[];
+    var o=loadObjLocal(id)||[];
+    var r=clampRoom(loadRoom(id));
+    return db.ref('mapa_v2/'+id+'/tables').set(t.map(function(x){return Object.assign({},x);}))
+      .then(function(){return db.ref('mapa_v2/'+id+'/objects').set(o.length?o.map(function(x){return Object.assign({},x);}):null);})
+      .then(function(){return db.ref('mapa_v2/'+id+'/room').set(r);})
+      .then(function(){done++;})
+      .catch(function(){errors++;});
+  }
+  var chain=Promise.resolve();
+  ids.forEach(function(id){chain=chain.then(function(){return pushOne(id);});});
+  chain.then(function(){
+    var meta={};mapsList.forEach(function(id){meta[id]=true;});
+    return db.ref('mapa_v2/__maps').set(meta);
+  }).then(function(){
+    if(btn){btn.textContent='▲ PUSH TODOS';btn.disabled=false;}
+    toast('✓ '+done+' mapas subidos'+(errors?' ('+errors+' errores)':''));
+  }).catch(function(e){
+    if(btn){btn.textContent='▲ PUSH TODOS';btn.disabled=false;}
+    toast('Error: '+e.message);
+  });
 }
 
 // ── AUTH ──
