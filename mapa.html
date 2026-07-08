@@ -154,28 +154,6 @@ try{_fbApp=firebase.initializeApp(FB_CFG);dbg('Firebase init OK');}catch(e){dbg(
 const db=_fbApp?firebase.database(_fbApp):null;
 dbg('db='+(db?'OK':'null'));
 
-// Default tables from the official SVG floor plan
-const DEFAULT_TABLES=[
-  {id:3,name:'3',sub:'',type:'rect',x:318,y:190,w:64,h:64},
-  {id:2,name:'2',sub:'',type:'rect',x:396,y:190,w:64,h:64},
-  {id:1,name:'1',sub:'',type:'rect',x:474,y:190,w:64,h:64},
-  {id:4,name:'4',sub:'',type:'rect',x:56,y:282,w:64,h:64},
-  {id:5,name:'5',sub:'',type:'rect',x:56,y:360,w:64,h:64},
-  {id:6,name:'6',sub:'',type:'rect',x:56,y:438,w:64,h:64},
-  {id:7,name:'7',sub:'',type:'rect',x:56,y:526,w:64,h:64},
-  {id:8,name:'8',sub:'',type:'rect',x:56,y:604,w:64,h:64},
-  {id:9,name:'9',sub:'Dancefloor',type:'rect',x:60,y:852,w:64,h:64},
-  {id:10,name:'10',sub:'',type:'rect',x:196,y:852,w:64,h:64},
-  {id:11,name:'11',sub:'',type:'circle',cx:302,cy:950,r:30},
-  {id:12,name:'12',sub:'',type:'circle',cx:374,cy:950,r:30},
-  {id:13,name:'13',sub:'',type:'circle',cx:446,cy:950,r:30},
-  {id:14,name:'14',sub:'',type:'circle',cx:518,cy:950,r:30},
-  {id:15,name:'15',sub:'',type:'circle',cx:604,cy:950,r:30},
-  {id:16,name:'16',sub:'',type:'circle',cx:636,cy:248,r:30},
-  {id:17,name:'17',sub:'',type:'circle',cx:636,cy:368,r:30},
-  {id:18,name:'18',sub:'',type:'circle',cx:636,cy:488,r:30},
-  {id:19,name:'19',sub:'',type:'circle',cx:636,cy:608,r:30},
-];
 
 let tables=[],tableStats={},nextId=200;
 
@@ -314,12 +292,6 @@ function doUnlink(tableId){
   saveTables();
   toast('Unlinked');
   closeInfo();
-}
-function saveTables(){
-  if(!db) return;
-  var data=tables.map(function(t){return Object.assign({},t);});
-  data.__v=2;
-  db.ref('mapa_v2/main/tables').set(data);
 }
 
 function loadTableStats(){

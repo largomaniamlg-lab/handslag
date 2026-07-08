@@ -305,27 +305,6 @@ const FB_CFG={apiKey:"AIzaSyC4c-4MXb9lrVMiHWn_0tE6PKIOU_lScRs",authDomain:"hands
 firebase.initializeApp(FB_CFG);
 const db=firebase.database();
 
-const DEFAULT_TABLES=[
-  {id:3,name:'3',sub:'',type:'rect',x:602,y:248,w:72,h:72},
-  {id:2,name:'2',sub:'',type:'rect',x:704,y:248,w:72,h:72},
-  {id:1,name:'1',sub:'',type:'rect',x:805,y:248,w:72,h:72},
-  {id:4,name:'4',sub:'',type:'rect',x:154,y:324,w:72,h:72},
-  {id:5,name:'5',sub:'',type:'rect',x:154,y:419,w:72,h:72},
-  {id:6,name:'6',sub:'',type:'rect',x:154,y:514,w:72,h:72},
-  {id:7,name:'7',sub:'',type:'rect',x:154,y:619,w:72,h:72},
-  {id:8,name:'8',sub:'',type:'rect',x:154,y:709,w:72,h:72},
-  {id:9,name:'9',sub:'Dancefloor',type:'rect',x:164,y:843,w:72,h:72},
-  {id:10,name:'10',sub:'',type:'rect',x:396,y:843,w:72,h:72},
-  {id:11,name:'11',sub:'',type:'circle',cx:630,cy:878,r:37},
-  {id:12,name:'12',sub:'',type:'circle',cx:742,cy:878,r:37},
-  {id:13,name:'13',sub:'',type:'circle',cx:854,cy:878,r:37},
-  {id:14,name:'14',sub:'',type:'circle',cx:966,cy:878,r:37},
-  {id:15,name:'15',sub:'',type:'circle',cx:1078,cy:878,r:37},
-  {id:16,name:'16',sub:'',type:'circle',cx:1230,cy:360,r:37},
-  {id:17,name:'17',sub:'',type:'circle',cx:1230,cy:502,r:37},
-  {id:18,name:'18',sub:'',type:'circle',cx:1230,cy:636,r:37},
-  {id:19,name:'19',sub:'',type:'circle',cx:1295,cy:770,r:37},
-];
 
 // ── STATE ──
 var tables=[], selection=[], nextId=200;
@@ -597,7 +576,7 @@ function duplicateMap(srcId){
   if(!newName)return;
   newName=newName.trim().toLowerCase().replace(/\s+/g,'-');
   if(!newName||mapsList.indexOf(newName)>=0){toast('Nombre no válido o ya existe');return;}
-  var srcT=loadLocal(srcId)||(srcId===activeMapId?tables:DEFAULT_TABLES);
+  var srcT=loadLocal(srcId)||(srcId===activeMapId?tables:[]);
   var srcO=loadObjLocal(srcId)||(srcId===activeMapId?objects:[]);
   mapsList.push(newName);saveMapsLocal();
   try{localStorage.setItem(localKey(newName),JSON.stringify(JSON.parse(JSON.stringify(srcT))));}catch(e){}
@@ -695,7 +674,6 @@ function rotateRoom(){
   var r=clampRoom(loadRoom());var nr=clampRoom({w:r.h,h:r.w});
   saveRoom(nr);applyRoom(nr);
 }
-function resetDefault(){if(!confirm('Restaurar mesas originales. ¿Continuar?'))return;snapshot();tables=DEFAULT_TABLES.map(function(t){return Object.assign({},t);});selection=[];saveLocal();updatePendingDot(true);render();renderList();}
 
 // ── SVG ──
 var NS='http://www.w3.org/2000/svg';
