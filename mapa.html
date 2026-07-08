@@ -116,6 +116,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   <div id="info-count" style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:14px"></div>
   <div id="info-guests"></div>
   <div id="info-link-btn" style="margin-top:12px;display:none"></div>
+  <div id="info-clear-btn" style="margin-top:8px;display:none"></div>
 </div>
 
 <div id="toast"></div>
@@ -605,6 +606,13 @@ function openInfo(t){
   var _u=null;try{_u=JSON.parse(sessionStorage.getItem('hs_currentUser')||localStorage.getItem('hs_currentUser'));}catch(e){}
   var _isPriv=_u&&(_u.role==='owner'||_u.role==='admin'||_u.username==='maline');
   var _canResv=!!_u; // any logged-in user can add/edit reservations
+  var clearBtn=document.getElementById('info-clear-btn');
+  if(_isPriv){
+    clearBtn.style.display='block';
+    clearBtn.innerHTML='<button onclick="clearTableData('+t.id+')" style="width:100%;padding:8px;background:transparent;border:1px solid rgba(192,57,43,0.4);border-radius:8px;color:rgba(220,80,80,0.8);font-family:var(--mono);font-size:11px;cursor:pointer;letter-spacing:0.5px;">🗑 Borrar mesa</button>';
+  } else {
+    clearBtn.style.display='none';
+  }
   var linkBtn=document.getElementById('info-link-btn');
   if(t.linkedTo){
     var partner=tables.find(function(x){return x.id===t.linkedTo;});
@@ -698,6 +706,41 @@ function openInfo(t){
 function closeInfo(){
   document.getElementById('info-overlay').classList.remove('open');
   document.getElementById('info-sheet').classList.remove('open');
+}
+
+function clearTableData(tableId){
+  var t=tables.find(function(x){return x.id===tableId;});
+  if(!t) return;
+  if(!confirm('¿Borrar TODA la información de la mesa '+t.name+'?\n\nEsto eliminará las reservas de hoy y los vínculos con otras mesas.\n\nEsta acción no se puede deshacer.')) return;
+  var today=new Date().toISOString().slice(0,10);
+  var ops=[];
+  // Remove all reservations for this table
+  ops.push(db.ref('events/'+today).once('value').then(function(snap){
+    var all=snap.val()||{};
+    var removes=[];
+    Object.keys(all).forEach(function(cat){
+      var catObj=all[cat]||{};
+      Object.keys(catObj).forEach(function(gid){
+        var g=catObj[gid];
+        if(g&&g.table&&String(g.table).toLowerCase()===String(t.name).toLowerCase()){
+          removes.push(db.ref('events/'+today+'/'+cat+'/'+gid).remove());
+        }
+      });
+    });
+    return Promise.all(removes);
+  }));
+  // Remove links
+  if(t.linkedTo){
+    var partner=tables.find(function(x){return x.id===t.linkedTo;});
+    if(partner){partner.linkedTo=null;partner.linkedGroup=null;}
+    t.linkedTo=null;t.linkedGroup=null;
+    ops.push(Promise.resolve(_saveTablesFirebase()));
+  }
+  Promise.all(ops).then(function(){
+    toast('Mesa '+t.name+' borrada');
+    render();
+    openInfo(t);
+  });
 }
 
 function _rfS(){return 'width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:var(--font);font-size:15px;box-sizing:border-box;';}
