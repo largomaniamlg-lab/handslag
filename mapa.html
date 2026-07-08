@@ -138,7 +138,7 @@ var _mt = {
     newResv:'New reservation · Table %s', editResv:'Edit reservation',
     from:'FROM', to:'TO', extraGuests:'ADDITIONAL GUESTS', notes:'NOTES', save:'Save', optional:'Optional...',
     namePlaceholder:'Name *', nameRequired:'Enter a name',
-    addResv:'+ Add reservation', clearTable:'🗑 Clear table',
+    addResv:'+ Add reservation', clearTable:'🗑 Clear table', tapToRename:'Tap to rename',
     resvUpdated:'Reservation updated ✓', resvAdded:'Reservation added ✓', tableCleared:'Table %s cleared',
     checkinToast:'✓ Check-in: ', checkoutToast:'○ Check-out: ',
     clearConfirm:'Delete ALL information from table %s?\n\nThis will remove today\'s reservations and table links.\n\nThis cannot be undone.',
@@ -152,7 +152,7 @@ var _mt = {
     newResv:'Ny reservasjon · Bord %s', editResv:'Rediger reservasjon',
     from:'FRA', to:'TIL', extraGuests:'EKSTRA GJESTER', notes:'NOTATER', save:'Lagre', optional:'Valgfritt...',
     namePlaceholder:'Navn *', nameRequired:'Skriv inn et navn',
-    addResv:'+ Legg til reservasjon', clearTable:'🗑 Tøm bord',
+    addResv:'+ Legg til reservasjon', clearTable:'🗑 Tøm bord', tapToRename:'Trykk for å gi nytt navn',
     resvUpdated:'Reservasjon oppdatert ✓', resvAdded:'Reservasjon lagt til ✓', tableCleared:'Bord %s tømt',
     checkinToast:'✓ Sjekket inn: ', checkoutToast:'○ Sjekket ut: ',
     clearConfirm:'Slette ALL informasjon fra bord %s?\n\nDette fjerner dagens reservasjoner og bordkoblinger.\n\nDette kan ikke angres.',
@@ -166,7 +166,7 @@ var _mt = {
     newResv:'Nueva reserva · Mesa %s', editResv:'Editar reserva',
     from:'DESDE', to:'HASTA', extraGuests:'INVITADOS ADICIONALES', notes:'NOTAS', save:'Guardar', optional:'Opcional...',
     namePlaceholder:'Nombre *', nameRequired:'Introduce un nombre',
-    addResv:'+ Añadir reserva', clearTable:'🗑 Borrar mesa',
+    addResv:'+ Añadir reserva', clearTable:'🗑 Borrar mesa', tapToRename:'Toca para renombrar',
     resvUpdated:'Reserva actualizada ✓', resvAdded:'Reserva añadida ✓', tableCleared:'Mesa %s borrada',
     checkinToast:'✓ Check-in: ', checkoutToast:'○ Check-out: ',
     clearConfirm:'¿Borrar TODA la información de la mesa %s?\n\nEsto eliminará las reservas de hoy y los vínculos con otras mesas.\n\nEsta acción no se puede deshacer.',
@@ -666,7 +666,16 @@ function openInfo(t){
   } else {
     linkBtn.style.display='none';
   }
-  document.getElementById('info-name').textContent=t.name;
+  var nameEl=document.getElementById('info-name');
+  nameEl.textContent=t.name;
+  nameEl.onclick=null;
+  nameEl.style.cursor='';
+  nameEl.title='';
+  if(_isPriv){
+    nameEl.style.cursor='pointer';
+    nameEl.title=mt.tapToRename||'Tap to rename';
+    nameEl.onclick=function(){renameTable(t);};
+  }
   document.getElementById('info-sub').textContent=t.sub||'';
   var timeEl=document.getElementById('info-time');
   if(t.timeFrom||t.timeTo){timeEl.textContent='🕐 '+(t.timeFrom||'?')+' – '+(t.timeTo||'?');timeEl.style.display='block';}
@@ -746,6 +755,35 @@ function openInfo(t){
 function closeInfo(){
   document.getElementById('info-overlay').classList.remove('open');
   document.getElementById('info-sheet').classList.remove('open');
+}
+function renameTable(t){
+  var nameEl=document.getElementById('info-name');
+  var current=String(t.name);
+  nameEl.innerHTML='<input id="rename-input" type="text" value="'+current+'" maxlength="10" style="width:100%;font-size:inherit;font-weight:inherit;font-family:inherit;color:inherit;background:rgba(255,255,255,0.08);border:2px solid var(--accent);border-radius:8px;padding:4px 8px;text-align:center;box-sizing:border-box;">'
+    +'<div style="display:flex;gap:8px;margin-top:8px;">'
+    +'<button onclick="_confirmRename('+t.id+')" style="flex:1;padding:8px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-family:var(--mono);font-size:13px;cursor:pointer;font-weight:700;">✓</button>'
+    +'<button onclick="openInfo(_currentInfoTable)" style="flex:1;padding:8px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:var(--mono);font-size:13px;cursor:pointer;">✕</button>'
+    +'</div>';
+  var inp=document.getElementById('rename-input');
+  inp.focus();inp.select();
+  inp.addEventListener('keydown',function(e){
+    if(e.key==='Enter')_confirmRename(t.id);
+    if(e.key==='Escape')openInfo(_currentInfoTable);
+  });
+}
+function _confirmRename(tableId){
+  var inp=document.getElementById('rename-input');
+  if(!inp)return;
+  var newName=(inp.value||'').trim();
+  if(!newName){toast(mt.nameRequired||'Enter a name');return;}
+  var t=tables.find(function(x){return x.id===tableId;});
+  if(!t)return;
+  var oldName=t.name;
+  t.name=newName;
+  _saveTablesFirebase();
+  render();
+  openInfo(t);
+  toast('✓ '+oldName+' → '+newName);
 }
 
 function clearTableData(tableId){
