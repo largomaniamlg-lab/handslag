@@ -315,6 +315,7 @@ body.light-mode .form-input, body.light-mode .form-select { background:#f0f0f0; 
     <div class="lang-toggle" style="margin-bottom:1.25rem">
       <button class="lang-btn active" onclick="setLang('en',this)">EN</button>
       <button class="lang-btn" onclick="setLang('no',this)">NB</button>
+      <button class="lang-btn" onclick="setLang('es',this)">ES</button>
     </div>
     <div class="form-row">
       <label class="form-label">Email</label>
@@ -523,6 +524,7 @@ body.light-mode .form-input, body.light-mode .form-select { background:#f0f0f0; 
   <div style="display:flex;gap:0.6rem;margin-top:0.5rem;margin-bottom:1.5rem">
     <button class="lang-btn active" id="settingsLangEn" onclick="setLang('en',this)" style="flex:1;padding:0.75rem">EN</button>
     <button class="lang-btn" id="settingsLangNo" onclick="setLang('no',this)" style="flex:1;padding:0.75rem">NB</button>
+    <button class="lang-btn" id="settingsLangEs" onclick="setLang('es',this)" style="flex:1;padding:0.75rem">ES</button>
   </div>
 
   <!-- Change Password -->
@@ -847,7 +849,7 @@ function startListening() {
     if (dot) dot.classList.toggle('offline', snap.val() !== true);
   });
   window.addEventListener('online',  () => { const d=document.getElementById('connDot'); if(d) d.classList.remove('offline'); });
-  window.addEventListener('offline', () => { const d=document.getElementById('connDot'); if(d) d.classList.add('offline'); showToast(lang==='no'?'📴 Offline — viser lagret liste':'📴 Offline — showing cached list'); });
+  window.addEventListener('offline', () => { const d=document.getElementById('connDot'); if(d) d.classList.add('offline'); showToast(tx('offline')); });
 }
 
 // ══════════════════════════════════════════
@@ -872,6 +874,13 @@ const T = {
     calTitle:'CALENDAR', calSave:'SAVE',
     role:'Role', promoters:'Promoters', regTitle:'Request Access',
     deleteConfirm:'Delete this guest?', deleteYes:'DELETE', deleteCancelBtn:'CANCEL',
+    offline:'📴 Offline — showing cached list',
+    filterGuestlist:'📋 Guestlist', filterVip:'⭐ VIP', filterTables:'🪑 Tables', filterPending:'Pending', filterIn:'Inside',
+    loginError:'Incorrect email or password', reqSent:'Request sent! Await approval.', emailInUse:'Email already in use',
+    adminsLbl:'Admins', pendingLbl:'Pending approval', activeLbl:'Active staff', noUsersLbl:'No users yet',
+    promoListCol:'List', promoInCol:'In',
+    changePw:'Change', cancelPw:'Cancel', pwMin6:'At least 6 characters', pwMismatch:'Passwords do not match', pwUpdated:'Password updated!', loginAgain:'Please log in again first',
+    nameUpdated:'Name updated',
   },
   no: {
     signin:'Logg inn', register:'Be om tilgang', noAccount:'Ingen konto? Be om tilgang',
@@ -891,6 +900,39 @@ const T = {
     calTitle:'KALENDER', calSave:'LAGRE',
     role:'Rolle', promoters:'Promotere', regTitle:'Be om tilgang',
     deleteConfirm:'Slette denne gjesten?', deleteYes:'SLETT', deleteCancelBtn:'AVBRYT',
+    offline:'📴 Offline — viser lagret liste',
+    filterGuestlist:'📋 Gjesteliste', filterVip:'⭐ VIP', filterTables:'🪑 Bord', filterPending:'Venter', filterIn:'Inne',
+    loginError:'Feil e-post eller passord', reqSent:'Forespørsel sendt! Vent på godkjenning.', emailInUse:'E-post er allerede i bruk',
+    adminsLbl:'Administratorer', pendingLbl:'Venter på godkjenning', activeLbl:'Aktive brukere', noUsersLbl:'Ingen brukere ennå',
+    promoListCol:'Liste', promoInCol:'Inn',
+    changePw:'Endre', cancelPw:'Avbryt', pwMin6:'Minst 6 tegn', pwMismatch:'Passordene stemmer ikke', pwUpdated:'Passord oppdatert!', loginAgain:'Logg inn på nytt først',
+    nameUpdated:'Navn oppdatert',
+  },
+  es: {
+    signin:'Iniciar sesión', register:'Solicitar acceso', noAccount:'¿Sin cuenta? Solicitar acceso',
+    backLogin:'← Volver al inicio', sendRequest:'ENVIAR SOLICITUD →', signIn:'INICIAR SESIÓN →',
+    total:'Total', inside:'Dentro', pending:'Pendiente',
+    navList:'Lista', navStats:'Stats', navLogout:'Salir', navAdmin:'Admin', navMap:'Mapa', navSettings:'Ajustes',
+    settingsTitle:'Ajustes', settingsLang:'Idioma', settingsPw:'Cambiar contraseña', settingsName:'Nombre', settingsColor:'Color acento', settingsTheme:'Tema', settingsSize:'Tamaño texto', settingsActivity:'Registro actividad',
+    statsTitle:'ESTADÍSTICAS', attendance:'Asistencia', breakdown:'Desglose',
+    bTotal:'Total en lista', bIn:'En el local', bVip:'Invitados VIP', bTable:'Mesas', bPending:'Pendientes',
+    addTitle:'AÑADIR INVITADO', name:'Nombre completo', guestsPlus:'Invitados +', table:'Mesa',
+    promoter:'Promotor', cancel:'CANCELAR', save:'GUARDAR',
+    checkin:'DENTRO', checkout:'FUERA',
+    toastIn:'✓ Entrada registrada', toastOut:'✗ Salida registrada', toastAdded:'Invitado añadido', toastDeleted:'Invitado eliminado',
+    emptyTitle:'Sin invitados encontrados', noEvent:'Sin invitados aún',
+    adminTitle:'PANEL ADMIN', adminPin:'Cambiar PIN admin',
+    pendingTitle:'PENDIENTE DE APROBACIÓN', pendingMsg:'Tu cuenta está esperando\nvalidación del admin.',
+    calTitle:'CALENDARIO', calSave:'GUARDAR',
+    role:'Rol', promoters:'Promotores', regTitle:'Solicitar acceso',
+    deleteConfirm:'¿Eliminar este invitado?', deleteYes:'ELIMINAR', deleteCancelBtn:'CANCELAR',
+    offline:'📴 Offline — mostrando lista guardada',
+    filterGuestlist:'📋 Lista', filterVip:'⭐ VIP', filterTables:'🪑 Mesas', filterPending:'Pendiente', filterIn:'Dentro',
+    loginError:'Email o contraseña incorrectos', reqSent:'¡Solicitud enviada! Espera la aprobación.', emailInUse:'El email ya está en uso',
+    adminsLbl:'Administradores', pendingLbl:'Pendiente de aprobación', activeLbl:'Personal activo', noUsersLbl:'Sin usuarios aún',
+    promoListCol:'Lista', promoInCol:'Dentro',
+    changePw:'Cambiar', cancelPw:'Cancelar', pwMin6:'Mínimo 6 caracteres', pwMismatch:'Las contraseñas no coinciden', pwUpdated:'¡Contraseña actualizada!', loginAgain:'Inicia sesión de nuevo primero',
+    nameUpdated:'Nombre actualizado',
   }
 };
 
@@ -941,11 +983,11 @@ function applyAppLang() {
   set('btn-change-pw',       (L.navSettings==='Innst.' ? 'LAGRE →' : 'SAVE →'));
   document.querySelectorAll('.filter-tabs .tab').forEach(btn => {
     const oc = btn.getAttribute('onclick') || '';
-    if (oc.includes("'guestlist'")) btn.textContent = lang==='no' ? '📋 Gjesteliste' : '📋 Guestlist';
+    if (oc.includes("'guestlist'")) btn.textContent = tx('filterGuestlist');
     if (oc.includes("'vip'"))       btn.textContent = '⭐ VIP';
-    if (oc.includes("'tables'"))    btn.textContent = lang==='no' ? '🪑 Bord' : '🪑 Tables';
-    if (oc.includes("'pending'"))   btn.textContent = lang==='no' ? 'Venter' : 'Pending';
-    if (oc.includes("'in',"))       btn.textContent = lang==='no' ? 'Inne' : 'Inside';
+    if (oc.includes("'tables'"))    btn.textContent = tx('filterTables');
+    if (oc.includes("'pending'"))   btn.textContent = tx('filterPending');
+    if (oc.includes("'in',"))       btn.textContent = tx('filterIn');
   });
   set('calTitle', L.calTitle);
 }
@@ -960,6 +1002,17 @@ function setLang(l, btn) {
   localStorage.setItem('hs_lang', l);
   document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+  // Keep settings panel buttons in sync
+  ['settingsLangEn','settingsLangNo','settingsLangEs'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('active', el.id === 'settingsLang'+l.charAt(0).toUpperCase()+l.slice(1));
+  });
+  // Save to Firebase user profile if logged in
+  if (currentUser && currentUser.uid && db) {
+    db.ref('users/' + currentUser.uid + '/lang').set(l);
+    currentUser.lang = l;
+    try { localStorage.setItem('hs_currentUser', JSON.stringify(currentUser)); } catch(e) {}
+  }
   applyAppLang();
 }
 
@@ -1009,7 +1062,7 @@ function doLogin() {
     })
     .catch(() => {
       err.style.display = 'block';
-      err.textContent = lang === 'no' ? 'Feil e-post eller passord' : 'Incorrect email or password';
+      err.textContent = tx('loginError');
     });
 }
 
@@ -1034,13 +1087,13 @@ function doRegister() {
     })
     .then(() => {
       ok.style.display = 'block';
-      ok.textContent = lang === 'no' ? 'Forespørsel sendt! Vent på godkjenning.' : 'Request sent! Await approval.';
+      ok.textContent = tx('reqSent');
       setTimeout(() => showScreen('loginScreen'), 2000);
     })
     .catch(e => {
       err.style.display = 'block';
       err.textContent = e.code === 'auth/email-already-in-use'
-        ? (lang === 'no' ? 'E-post er allerede i bruk' : 'Email already in use')
+        ? tx('emailInUse')
         : (e.message || 'Registration failed');
     });
 }
@@ -1073,6 +1126,12 @@ function doLogout() {
 //  ENTER APP
 // ══════════════════════════════════════════
 function enterApp() {
+  // Apply user's saved language preference
+  if (currentUser.lang && T[currentUser.lang]) {
+    lang = currentUser.lang;
+    localStorage.setItem('hs_lang', lang);
+  }
+  applyAppLang();
   // Save session for mapa.html access
   try {
     localStorage.setItem('hs_currentUser', JSON.stringify(currentUser));
@@ -1107,18 +1166,13 @@ function enterApp() {
   const addBtn = document.querySelector('.btn-add');
   if (addBtn) addBtn.style.display = isDoor ? 'none' : '';
 
-  // Sync topbar lang toggle
-  const enBtn = document.getElementById('appLangEn');
-  const noBtn = document.getElementById('appLangNo');
-  if (enBtn && noBtn) {
-    if (lang === 'no') {
-      noBtn.style.background = 'var(--accent)'; noBtn.style.color = '#000';
-      enBtn.style.background = 'none'; enBtn.style.color = 'var(--muted)';
-    } else {
-      enBtn.style.background = 'var(--accent)'; enBtn.style.color = '#000';
-      noBtn.style.background = 'none'; noBtn.style.color = 'var(--muted)';
-    }
-  }
+  // Sync all lang buttons
+  ['settingsLangEn','settingsLangNo','settingsLangEs'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const l = id.replace('settingsLang','').toLowerCase();
+    el.classList.toggle('active', l === lang);
+  });
   // Default to today
   const now = new Date();
   const todayKey = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
@@ -1501,8 +1555,8 @@ function updateStats() {
     const promos = Object.entries(pm).sort((a,b)=>b[1].total-a[1].total);
     if (promos.length) {
       promoCard.style.display='';
-      const lbl=document.getElementById('lbl-promoters'); if(lbl) lbl.textContent=lang==='no'?'Promotere':'Promoters';
-      promoWrap.innerHTML='<table class="promo-table"><thead><tr><th>Promoter</th><th>'+(lang==='no'?'Liste':'List')+'</th><th>'+(lang==='no'?'Inn':'In')+'</th><th>%</th></tr></thead><tbody>'+
+      const lbl=document.getElementById('lbl-promoters'); if(lbl) lbl.textContent=tx('promoters');
+      promoWrap.innerHTML='<table class="promo-table"><thead><tr><th>Promoter</th><th>'+tx('promoListCol')+'</th><th>'+tx('promoInCol')+'</th><th>%</th></tr></thead><tbody>'+
         promos.map(([n,d])=>{const pct=d.total>0?Math.round(d.in/d.total*100):0;return`<tr><td>${n}</td><td>${d.total}</td><td>${d.in}</td><td>${pct}%<span class="promo-bar-wrap"><span class="promo-bar-fill" style="width:${pct}%"></span></span></td></tr>`;}).join('')+'</tbody></table>';
     } else { promoCard.style.display='none'; }
   }
@@ -1560,7 +1614,7 @@ function _renderAdminHtml() {
 
   // PRIVILEGED (owner/admin)
   if (privileged.length) {
-    html += `<div class="section-label">👑 ${lang==='no'?'Administratorer':'Admins'} (${privileged.length})</div>`;
+    html += `<div class="section-label">👑 ${tx('adminsLbl')} (${privileged.length})</div>`;
     html += privileged.map(u => `
       <div class="user-item" style="border-color:rgba(180,79,255,0.2);${showRoles?'cursor:pointer;':''}" ${showRoles?`onclick="openRoleEditor('${u.username}','${u.role}','${u.name}','${u.uid||''}')"`:''}>
         <div class="user-info">
@@ -1574,7 +1628,7 @@ function _renderAdminHtml() {
 
   // PENDING
   if (pending.length) {
-    html += `<div class="section-label" style="margin-top:1rem">⏳ ${lang==='no'?'Venter på godkjenning':'Pending approval'} (${pending.length})</div>`;
+    html += `<div class="section-label" style="margin-top:1rem">⏳ ${tx('pendingLbl')} (${pending.length})</div>`;
     html += pending.map(u => `
       <div class="user-item" style="flex-wrap:wrap;gap:0.4rem">
         <div class="user-info" style="flex:1;min-width:0">
@@ -1593,7 +1647,7 @@ function _renderAdminHtml() {
 
   // APPROVED STAFF
   if (approved.length) {
-    html += `<div class="section-label" style="margin-top:1rem">✅ ${lang==='no'?'Aktive brukere':'Active staff'} (${approved.length})</div>`;
+    html += `<div class="section-label" style="margin-top:1rem">✅ ${tx('activeLbl')} (${approved.length})</div>`;
     html += approved.map(u => `
       <div class="user-item" ${showRoles?`onclick="openRoleEditor('${u.username}','${u.role}','${u.name}','${u.uid||''}')" style="cursor:pointer"`:''}>
         <div class="user-info">
@@ -1608,7 +1662,7 @@ function _renderAdminHtml() {
   }
 
   if (!privileged.length && !pending.length && !approved.length) {
-    html = `<div class="empty-state"><div class="empty-icon">👥</div><p>${lang==='no'?'Ingen brukere ennå':'No users yet'}</p></div>`;
+    html = `<div class="empty-state"><div class="empty-icon">👥</div><p>${tx('noUsersLbl')}</p></div>`;
   }
 
   document.getElementById('adminUserList').innerHTML = html;
@@ -1779,14 +1833,14 @@ function toggleSizeForm() {
   const wrap = document.getElementById('sizeFormWrap');
   const isOpen = wrap.style.display === 'block';
   wrap.style.display = isOpen ? 'none' : 'block';
-  document.getElementById('btn-toggle-size').textContent = isOpen ? (lang==='no'?'Endre':'Change') : (lang==='no'?'Avbryt':'Cancel');
+  document.getElementById('btn-toggle-size').textContent = isOpen ? tx('changePw') : tx('cancelPw');
 }
 
 function togglePwForm() {
   const wrap = document.getElementById('pwFormWrap');
   const isOpen = wrap.style.display === 'flex';
   wrap.style.display = isOpen ? 'none' : 'flex';
-  document.getElementById('btn-toggle-pw').textContent = isOpen ? (lang==='no'?'Endre':'Change') : (lang==='no'?'Avbryt':'Cancel');
+  document.getElementById('btn-toggle-pw').textContent = isOpen ? tx('changePw') : tx('cancelPw');
 }
 
 function changePassword() {
@@ -1795,13 +1849,13 @@ function changePassword() {
   const err = document.getElementById('settingsPwErr');
   const ok = document.getElementById('settingsPwOk');
   err.style.display = 'none'; ok.style.display = 'none';
-  if (!pw || pw.length < 6) { err.style.display='block'; err.textContent = lang==='no'?'Minst 6 tegn':'At least 6 characters'; return; }
-  if (pw !== pw2) { err.style.display='block'; err.textContent = lang==='no'?'Passordene stemmer ikke':'Passwords do not match'; return; }
+  if (!pw || pw.length < 6) { err.style.display='block'; err.textContent = tx('pwMin6'); return; }
+  if (pw !== pw2) { err.style.display='block'; err.textContent = tx('pwMismatch'); return; }
   const fbUser = firebase.auth().currentUser;
   if (!fbUser) return;
   fbUser.updatePassword(pw)
-    .then(() => { ok.style.display='block'; ok.textContent = lang==='no'?'Passord oppdatert!':'Password updated!'; document.getElementById('settingsNewPw').value=''; document.getElementById('settingsConfirmPw').value=''; })
-    .catch(e => { err.style.display='block'; err.textContent = e.code==='auth/requires-recent-login' ? (lang==='no'?'Logg inn på nytt først':'Please log in again first') : (e.message||'Error'); });
+    .then(() => { ok.style.display='block'; ok.textContent = tx('pwUpdated'); document.getElementById('settingsNewPw').value=''; document.getElementById('settingsConfirmPw').value=''; })
+    .catch(e => { err.style.display='block'; err.textContent = e.code==='auth/requires-recent-login' ? tx('loginAgain') : (e.message||'Error'); });
 }
 
 function changeDisplayName() {
@@ -1809,7 +1863,7 @@ function changeDisplayName() {
   if (!name || !currentUser || !currentUser.uid) return;
   db.ref('users/' + currentUser.uid + '/name').set(name).then(() => {
     currentUser.name = name;
-    showToast(lang==='no'?'Navn oppdatert':'Name updated');
+    showToast(tx('nameUpdated'));
     logActivity('changed_name', name);
   });
 }
