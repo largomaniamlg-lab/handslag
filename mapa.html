@@ -87,33 +87,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   </div>
   <div id="wrap">
     <div id="fp-box">
-      <svg id="fp" viewBox="0 0 760 1080" width="100%">
-        <!-- ── ROOM ── -->
-        <rect x="40" y="100" width="680" height="920" fill="#faf7f1"/>
-        <!-- ── ZONES ── -->
-        <rect x="560" y="105" width="155" height="910" fill="#e8ede6"/>
-        <rect x="50" y="830" width="264" height="178" rx="6" fill="#f3e7d8"/>
-        <!-- zone divider -->
-        <line x1="560" y1="175" x2="560" y2="1018" stroke="#b8b1a2" stroke-width="3"/>
-        <!-- ── WALLS ── -->
-        <g stroke="#33312c" stroke-width="7" stroke-linecap="round" fill="none">
-          <line x1="40" y1="100" x2="720" y2="100"/>
-          <line x1="40" y1="100" x2="40" y2="1020"/>
-          <line x1="720" y1="100" x2="720" y2="1020"/>
-          <line x1="40" y1="1020" x2="720" y2="1020"/>
-        </g>
-        <!-- ── TOP KAFFE SHELF ── -->
-        <rect x="290" y="112" width="264" height="38" rx="5" fill="#33312c"/>
-        <text x="422" y="86" text-anchor="middle" font-size="22" letter-spacing="6" fill="#6f695d">KAFFE</text>
-        <!-- ── MAIN BAR ── -->
-        <rect x="290" y="272" width="76" height="312" rx="6" fill="#33312c"/>
-        <text transform="rotate(-90 328 428)" x="328" y="428" text-anchor="middle" dominant-baseline="middle" font-size="21" letter-spacing="5" fill="#f3efe6">MAIN BAR</text>
-        <!-- ── BACK BAR ── -->
-        <rect x="384" y="436" width="86" height="150" rx="6" fill="#33312c"/>
-        <text transform="rotate(-90 427 511)" x="427" y="511" text-anchor="middle" dominant-baseline="middle" font-size="18" letter-spacing="4" fill="#f3efe6">BACK BAR</text>
-        <!-- ── DANCEFLOOR LABEL ── -->
-        <text x="182" y="845" text-anchor="middle" font-size="14" letter-spacing="4" fill="#b08a55">DANCEFLOOR</text>
-        <!-- ── TABLES (rendered by JS) ── -->
+      <svg id="fp" viewBox="30 90 1380 920" width="100%">
+        <g id="room-layer"></g>
+        <g id="objects-layer"></g>
         <g id="tables-layer"></g>
       </svg>
     </div>
@@ -203,29 +179,43 @@ function grantAccess(user){
   document.getElementById('app').style.display='flex';
   dbg('lock hidden, app shown');
   try{applyMapLang();dbg('applyMapLang OK');}catch(e){dbg('applyMapLang ERR: '+e.message);}
-  tables=DEFAULT_TABLES.map(function(t){return Object.assign({},t);});
+  tables=[]; objects=[]; room={w:1260,h:800};
   try{render();dbg('render OK');}catch(e){dbg('render ERR: '+e.message);}
   if(db){loadTableStats();dbg('loadTableStats called');}
   if(db){db.ref('.info/connected').on('value',function(s){document.getElementById('sync-dot').className=s.val()?'':'off';});}
   if(db){db.ref('mapa_v2/__active').once('value', function(asnap) {
     var activeMap = asnap.val() || 'main';
-  db.ref('mapa_v2/'+activeMap+'/tables').on('value',function(snap){
-    var raw=snap.val();
-    dbg('Firebase tables received, activeMap='+activeMap+' raw='+(raw?'object':'null'));
-    if(raw){
-      var arr=Array.isArray(raw)?raw:Object.values(raw);
-      arr=arr.filter(function(x){return x&&x!==null&&typeof x==='object'&&!('__v' in x);});
-      dbg('tables after filter: '+arr.length);
-      if(arr.length>0){
-        tables=arr;
-        nextId=Math.max(nextId,...tables.map(function(t){return t.id||0;}))+1;
-        dbg('loaded '+tables.length+' tables from Firebase');
-      }
-    } else {
-      dbg('no Firebase data, keeping defaults');
-    }
-    render();
-  });
+    dbg('active map: '+activeMap);
+    // Load room geometry
+    db.ref('mapa_v2/'+activeMap+'/room').once('value',function(rsnap){
+      var r=rsnap.val();
+      if(r&&r.w&&r.h){room={w:r.w,h:r.h};applyRoomVB(room);dbg('room: '+r.w+'x'+r.h);}
+    });
+    // Load objects (background elements)
+    db.ref('mapa_v2/'+activeMap+'/objects').on('value',function(osnap){
+      var raw=osnap.val();
+      if(raw){
+        var arr=Array.isArray(raw)?raw:Object.values(raw);
+        objects=arr.filter(function(x){return x&&typeof x==='object';});
+        dbg('objects: '+objects.length);
+      } else { objects=[]; }
+      render();
+    });
+    // Load tables
+    db.ref('mapa_v2/'+activeMap+'/tables').on('value',function(snap){
+      var raw=snap.val();
+      dbg('Firebase tables: '+(raw?'object':'null')+' map='+activeMap);
+      if(raw){
+        var arr=Array.isArray(raw)?raw:Object.values(raw);
+        arr=arr.filter(function(x){return x&&x!==null&&typeof x==='object'&&!('__v' in x);});
+        dbg('tables: '+arr.length);
+        if(arr.length>0){
+          tables=arr;
+          nextId=Math.max(nextId,...tables.map(function(t){return t.id||0;}))+1;
+        }
+      } else { tables=[]; dbg('no tables in Firebase'); }
+      render();
+    });
   });} // close db.ref __active + if(db)
 }
 function denyAccess(){
@@ -319,13 +309,87 @@ function loadTableStats(){
 }
 
 var NS='http://www.w3.org/2000/svg';
+var objects=[], room={w:1260,h:800};
 function svgEl(tag,attrs){
   var el=document.createElementNS(NS,tag);
   Object.keys(attrs).forEach(function(k){el.setAttribute(k,attrs[k]);});
   return el;
 }
 
+function applyRoomVB(r){
+  room=r||{w:1260,h:800};
+  var cx=720,cy=550,pad=60;
+  var x=cx-room.w/2,y=cy-room.h/2;
+  document.getElementById('fp').setAttribute('viewBox',(x-pad)+' '+(y-pad)+' '+(room.w+pad*2)+' '+(room.h+pad*2));
+}
+
+function renderRoom(){
+  var layer=document.getElementById('room-layer');
+  while(layer.firstChild)layer.removeChild(layer.firstChild);
+  var cx=720,cy=550,x=cx-room.w/2,y=cy-room.h/2,x2=cx+room.w/2,y2=cy+room.h/2;
+  layer.appendChild(svgEl('rect',{x:x,y:y,width:room.w,height:room.h,fill:'#faf7f1'}));
+  var b=document.createElementNS(NS,'g');
+  b.setAttribute('stroke','#33312c');b.setAttribute('stroke-width','7');b.setAttribute('stroke-linecap','round');b.setAttribute('fill','none');
+  [[x,y,x2,y],[x,y,x,y2],[x2,y,x2,y2],[x,y2,x2,y2]].forEach(function(l){b.appendChild(svgEl('line',{x1:l[0],y1:l[1],x2:l[2],y2:l[3]}));});
+  layer.appendChild(b);
+}
+
+function renderObjects(){
+  var layer=document.getElementById('objects-layer');
+  while(layer.firstChild)layer.removeChild(layer.firstChild);
+  objects.forEach(function(o){
+    var ox=o.x||720,oy=o.y||550,rot=o.rotation||0;
+    var g=document.createElementNS(NS,'g');
+    if(o.type==='area'){
+      var w=o.w||160,h=o.h||80;
+      var inn=document.createElementNS(NS,'g');
+      inn.setAttribute('transform','translate('+ox+','+oy+') rotate('+rot+')');
+      var bgCol=o.bgColor||'#f3e7d8';
+      inn.appendChild(svgEl('rect',{x:-w/2,y:-h/2,width:w,height:h,rx:'8',fill:o.noBg?'none':bgCol,stroke:o.noBg?'#aaa':bgCol,'stroke-width':o.noBg?'2':'0','stroke-dasharray':o.noBg?'6,3':'0',opacity:'0.92'}));
+      var fs=o.fontSize||22;
+      var txt=svgEl('text',{x:0,y:0,'text-anchor':'middle','dominant-baseline':'middle','font-size':fs,'font-family':'Barlow Condensed,sans-serif','font-weight':'700',fill:o.color||'#33312c','letter-spacing':'2','pointer-events':'none'});
+      txt.textContent=o.text||'';
+      inn.appendChild(txt);g.appendChild(inn);
+    } else if(o.type==='door'){
+      var sz=o.size||80;
+      var inn=document.createElementNS(NS,'g');
+      inn.setAttribute('transform','translate('+ox+','+oy+') rotate('+rot+')');
+      inn.appendChild(svgEl('rect',{x:-sz/2,y:0,width:sz,height:8,rx:'3',fill:'#8d6e63'}));
+      inn.appendChild(svgEl('path',{d:'M -'+(sz/2)+' 8 A '+(sz-8)+' '+(sz-8)+' 0 0,1 '+(sz/2)+' 8',fill:'none',stroke:'#8d6e63','stroke-width':'3','stroke-dasharray':'6,3'}));
+      var dlbl=svgEl('text',{x:'0',y:'-8','text-anchor':'middle','font-size':'11','font-weight':'700','font-family':'Space Mono,monospace',fill:'#8d6e63','pointer-events':'none'});
+      dlbl.textContent='PUERTA';inn.appendChild(dlbl);g.appendChild(inn);
+    } else if(o.type==='divider'){
+      var len=o.size||160;
+      var inn=document.createElementNS(NS,'g');
+      inn.setAttribute('transform','translate('+ox+','+oy+') rotate('+rot+')');
+      inn.appendChild(svgEl('rect',{x:-len/2,y:-6,width:len,height:12,rx:'4',fill:'#a09080'}));
+      g.appendChild(inn);
+    } else if(o.type==='plant'){
+      var pr=o.size||28;
+      var inn=document.createElementNS(NS,'g');
+      inn.setAttribute('transform','translate('+ox+','+oy+')');
+      inn.appendChild(svgEl('rect',{x:-pr*0.4,y:pr*0.4,width:pr*0.8,height:pr*0.6,rx:'3',fill:'#8d6e63'}));
+      inn.appendChild(svgEl('circle',{cx:0,cy:0,r:pr,fill:'#4caf50',opacity:'0.85'}));
+      inn.appendChild(svgEl('circle',{cx:-pr*0.3,cy:-pr*0.2,r:pr*0.35,fill:'#388e3c'}));
+      inn.appendChild(svgEl('circle',{cx:pr*0.3,cy:-pr*0.1,r:pr*0.3,fill:'#43a047'}));
+      g.appendChild(inn);
+    } else if(o.type==='chair'){
+      var sz=o.size||28;
+      var inn=document.createElementNS(NS,'g');
+      inn.setAttribute('transform','translate('+ox+','+oy+') rotate('+rot+')');
+      inn.appendChild(svgEl('rect',{x:-sz/2,y:-sz*0.1,width:sz,height:sz*0.7,rx:String(sz*0.12),fill:'#a1887f'}));
+      inn.appendChild(svgEl('rect',{x:-sz/2,y:-sz/2,width:sz,height:sz*0.35,rx:String(sz*0.1),fill:'#6b5a4e'}));
+      inn.appendChild(svgEl('rect',{x:-sz/2,y:sz*0.55,width:sz*0.18,height:sz*0.3,rx:'2',fill:'#6b5a4e'}));
+      inn.appendChild(svgEl('rect',{x:sz/2-sz*0.18,y:sz*0.55,width:sz*0.18,height:sz*0.3,rx:'2',fill:'#6b5a4e'}));
+      g.appendChild(inn);
+    }
+    layer.appendChild(g);
+  });
+}
+
 function render(){
+  renderRoom();
+  renderObjects();
   var layer=document.getElementById('tables-layer');
   while(layer.firstChild)layer.removeChild(layer.firstChild);
   tables.forEach(function(t){

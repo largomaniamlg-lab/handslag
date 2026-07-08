@@ -406,9 +406,13 @@ function pushToApp(){
   if(!isOnline){toast('Sin conexión');return;}
   var btn=document.getElementById('push-btn');
   if(btn){btn.textContent='⏳';btn.disabled=true;}
+  var room=clampRoom(loadRoom(activeMapId));
   db.ref('mapa_v2/'+activeMapId+'/tables').set(tables.map(function(t){return Object.assign({},t);}))
   .then(function(){
     return db.ref('mapa_v2/'+activeMapId+'/objects').set(objects.length?objects.map(function(o){return Object.assign({},o);}):null);
+  })
+  .then(function(){
+    return db.ref('mapa_v2/'+activeMapId+'/room').set(room);
   })
   .then(function(){
     var meta={};mapsList.forEach(function(id){meta[id]=true;});
