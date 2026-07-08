@@ -1562,12 +1562,13 @@ function _renderAdminHtml() {
   if (privileged.length) {
     html += `<div class="section-label">👑 ${lang==='no'?'Administratorer':'Admins'} (${privileged.length})</div>`;
     html += privileged.map(u => `
-      <div class="user-item" style="border-color:rgba(180,79,255,0.2)">
+      <div class="user-item" style="border-color:rgba(180,79,255,0.2);${showRoles?'cursor:pointer;':''}" ${showRoles?`onclick="openRoleEditor('${u.username}','${u.role}','${u.name}','${u.uid||''}')"`:''}>
         <div class="user-info">
           <div class="user-name-label">${u.name}</div>
           <div class="user-role-label">@${u.username}${showRoles?' · '+roleLabel(u.role):''}${u.registeredAt ? ' · ' + u.registeredAt : ''}</div>
         </div>
         <span class="user-status approved" style="border-color:rgba(180,79,255,0.5)">${showRoles?roleLabel(u.role):'Staff'}</span>
+        ${showRoles ? '<span style="color:var(--muted);font-size:14px;margin-left:4px;">›</span>' : ''}
       </div>`).join('');
   }
 
@@ -1594,14 +1595,15 @@ function _renderAdminHtml() {
   if (approved.length) {
     html += `<div class="section-label" style="margin-top:1rem">✅ ${lang==='no'?'Aktive brukere':'Active staff'} (${approved.length})</div>`;
     html += approved.map(u => `
-      <div class="user-item">
+      <div class="user-item" ${showRoles?`onclick="openRoleEditor('${u.username}','${u.role}','${u.name}','${u.uid||''}')" style="cursor:pointer"`:''}>
         <div class="user-info">
           <div class="user-name-label">${u.name}</div>
           <div class="user-role-label">@${u.username}${showRoles?' · '+roleLabel(u.role):''}${u.registeredAt ? ' · ' + u.registeredAt : ''}</div>
         </div>
         <span class="user-status approved">${showRoles?roleLabel(u.role):'Active'}</span>
-        ${showRoles ? `<button class="btn-revoke" onclick="revokeUser('${u.username}')" style="margin-right:0.25rem" title="Suspend">⏸</button>` : ''}
-        <button class="btn-revoke" style="border-color:rgba(255,59,59,0.4);color:#ef4444" onclick="deleteUser('${u.username}')" title="Delete">🗑</button>
+        ${showRoles ? '<span style="color:var(--muted);font-size:14px;margin-left:4px;">›</span>' : ''}
+        ${showRoles ? `<button class="btn-revoke" onclick="event.stopPropagation();revokeUser('${u.username}')" style="margin-right:0.25rem" title="Suspend">⏸</button>` : ''}
+        <button class="btn-revoke" style="border-color:rgba(255,59,59,0.4);color:#ef4444" onclick="event.stopPropagation();deleteUser('${u.username}')" title="Delete">🗑</button>
       </div>`).join('');
   }
 
@@ -2029,7 +2031,79 @@ function saveProfile() {
   showToast(tx('toastSaved') || 'Guardado ✓');
 }
 
+// ── ROLE EDITOR ──
+var _reUser = null;
+var _reSelectedRole = null;
+var _reRoleColors = {owner:'#b44fff', admin:'#06c8e8', door:'#6b7280', promoter:'#f59e0b', bar:'#10b981'};
+
+function openRoleEditor(username, currentRole, name, uid) {
+  _reUser = { username, currentRole, name, uid };
+  _reSelectedRole = currentRole;
+  document.getElementById('re-name').textContent = name;
+  document.getElementById('re-username').textContent = '@' + username;
+  const roles = ['owner','admin','promoter','door','bar'];
+  const labels = {owner:'Owner', admin:'Admin', promoter:'Promoter', door:'Door', bar:'Bar'};
+  const container = document.getElementById('re-roles');
+  container.innerHTML = '';
+  roles.forEach(r => {
+    const el = document.createElement('div');
+    const sel = r === currentRole;
+    el.id = 're-opt-' + r;
+    el.style.cssText = `display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;border:2px solid ${sel?(_reRoleColors[r]||'#888'):'rgba(255,255,255,0.1)'};cursor:pointer;background:${sel?'rgba(255,255,255,0.05)':'transparent'};`;
+    el.innerHTML = `<div style="width:10px;height:10px;border-radius:50%;background:${_reRoleColors[r]||'#888'};flex-shrink:0;"></div><div style="flex:1;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:${_reRoleColors[r]||'#888'};">${labels[r]||r}</div>${sel?'<span style="color:var(--accent);">✓</span>':''}`;
+    el.onclick = () => {
+      _reSelectedRole = r;
+      roles.forEach(x => {
+        const opt = document.getElementById('re-opt-' + x);
+        if (!opt) return;
+        const s = x === r;
+        opt.style.border = `2px solid ${s?(_reRoleColors[x]||'#888'):'rgba(255,255,255,0.1)'}`;
+        opt.style.background = s ? 'rgba(255,255,255,0.05)' : 'transparent';
+        opt.innerHTML = `<div style="width:10px;height:10px;border-radius:50%;background:${_reRoleColors[x]||'#888'};flex-shrink:0;"></div><div style="flex:1;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:${_reRoleColors[x]||'#888'};">${labels[x]||x}</div>${s?'<span style="color:var(--accent);">✓</span>':''}`;
+      });
+    };
+    container.appendChild(el);
+  });
+  document.getElementById('role-editor-overlay').style.display = 'block';
+  document.getElementById('role-editor-sheet').style.display = 'block';
+}
+
+function closeRoleEditor() {
+  document.getElementById('role-editor-overlay').style.display = 'none';
+  document.getElementById('role-editor-sheet').style.display = 'none';
+  _reUser = null;
+}
+
+function saveRoleEdit() {
+  if (!_reUser || !_reSelectedRole) return;
+  const { username, currentRole, name, uid } = _reUser;
+  if (_reSelectedRole === currentRole) { closeRoleEditor(); return; }
+  if (!confirm(`¿Cambiar el rol de ${name} (@${username}) de "${currentRole}" a "${_reSelectedRole}"?`)) return;
+  const u = users.find(x => x.username === username);
+  const key = uid || (u && u.uid);
+  if (!key) { showToast('Error: usuario no encontrado'); return; }
+  db.ref('users/' + key + '/role').set(_reSelectedRole)
+    .then(() => {
+      if (u) u.role = _reSelectedRole;
+      showToast(`✓ @${username} → ${_reSelectedRole}`);
+      closeRoleEditor();
+      renderAdmin();
+    })
+    .catch(e => showToast('Error: ' + e.message));
+}
+
 </script>
+
+<!-- ROLE EDITOR SHEET (owner only) -->
+<div id="role-editor-overlay" onclick="closeRoleEditor()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:600;"></div>
+<div id="role-editor-sheet" style="display:none;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:2px solid var(--accent);border-radius:20px 20px 0 0;padding:24px 20px 44px;z-index:601;max-height:85vh;overflow-y:auto;">
+  <div style="width:36px;height:4px;background:rgba(255,255,255,0.15);border-radius:2px;margin:0 auto 20px;"></div>
+  <div id="re-name" style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;margin-bottom:4px;"></div>
+  <div id="re-username" style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:24px;"></div>
+  <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">Rol</div>
+  <div id="re-roles" style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px;"></div>
+  <button onclick="saveRoleEdit()" style="width:100%;padding:14px;background:var(--grad);color:#fff;border:none;border-radius:12px;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;letter-spacing:0.05em;cursor:pointer;">Guardar cambios</button>
+</div>
 
 <!-- GUEST PROFILE SHEET -->
 <div id="profile-overlay" onclick="closeProfile()">

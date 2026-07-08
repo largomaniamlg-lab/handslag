@@ -73,7 +73,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     <button class="hbtn" onclick="goBack()" id="btn-back-top">← Back</button>
     <span class="logo">Håndslag</span>
     <div class="spacer"></div>
-    <button id="users-btn" onclick="openUsers()" style="display:none;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:10px;padding:5px 10px;border-radius:7px;cursor:pointer;">👥 Usuarios</button>
     <div id="sync-dot"></div>
   </div>
   <div style="display:flex;align-items:center;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;">
@@ -120,13 +119,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 <div id="toast"></div>
 
-<!-- Users panel (owner only) -->
-<div id="users-overlay" onclick="closeUsers()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:400;"></div>
-<div id="users-sheet" style="display:none;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:2px solid var(--accent);border-radius:20px 20px 0 0;padding:20px 20px 40px;z-index:401;max-height:80vh;overflow-y:auto;">
-  <button onclick="closeUsers()" style="position:absolute;top:16px;right:16px;background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer;">✕</button>
-  <div style="font-family:var(--font);font-size:22px;font-weight:700;margin-bottom:16px;">👥 Usuarios</div>
-  <div id="users-list"></div>
-</div>
 
 
 <script>
@@ -636,105 +628,6 @@ function closeInfo(){
 
 function toast(msg){var el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(function(){el.classList.remove('show');},2200);}
 
-// ── USER MANAGEMENT (owner only) ──
-var _allUsers=[];
-var roleColors={owner:'#b44fff',admin:'#06c8e8',door:'#888'};
-var roleLabels={owner:'Owner','admin':'Admin',door:'Door'};
-
-function openUsers(){
-  if(!db){toast('Sin conexión');return;}
-  var sheet=document.getElementById('users-sheet');
-  var overlay=document.getElementById('users-overlay');
-  document.getElementById('users-list').innerHTML='<div style="font-family:var(--mono);font-size:12px;color:var(--muted)">Cargando...</div>';
-  sheet.style.display='block'; overlay.style.display='block';
-  db.ref('users').once('value',function(snap){
-    var all=snap.val()||{};
-    _allUsers=Object.entries(all).map(function(e){return Object.assign({_key:e[0]},e[1]);});
-    _allUsers.sort(function(a,b){return (a.username||'').localeCompare(b.username||'');});
-    renderUsersList();
-  });
-}
-
-function renderUsersList(){
-  var list=document.getElementById('users-list');
-  list.innerHTML='';
-  if(!_allUsers.length){list.innerHTML='<div style="color:var(--muted);font-family:var(--mono);font-size:12px;">No hay usuarios</div>';return;}
-  _allUsers.forEach(function(u){
-    var row=document.createElement('div');
-    row.style.cssText='display:flex;align-items:center;gap:10px;padding:12px 10px;border-bottom:1px solid rgba(255,255,255,0.07);cursor:pointer;border-radius:8px;';
-    row.onmouseover=function(){row.style.background='rgba(255,255,255,0.04)';};
-    row.onmouseout=function(){row.style.background='';};
-    var roleBadge='<span style="font-family:var(--mono);font-size:10px;font-weight:700;color:'+(roleColors[u.role]||'#888')+';background:rgba(255,255,255,0.07);padding:3px 8px;border-radius:20px;">'+(u.role||'?')+'</span>';
-    row.innerHTML='<div style="flex:1;">'
-      +'<div style="font-family:var(--font);font-size:18px;font-weight:700;">'+(u.name||u.username||u._key)+'</div>'
-      +'<div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px;">@'+(u.username||u._key)+'</div>'
-      +'</div>'+roleBadge
-      +'<span style="color:var(--muted);font-size:16px;">›</span>';
-    row.onclick=function(){openUserDetail(u);};
-    list.appendChild(row);
-  });
-}
-
-function openUserDetail(u){
-  var list=document.getElementById('users-list');
-  var roles=['owner','admin','door'];
-  var selectedRole=u.role||'door';
-  list.innerHTML='<button onclick="renderUsersList()" style="background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:11px;cursor:pointer;margin-bottom:16px;">← Volver</button>'
-    +'<div style="font-family:var(--font);font-size:24px;font-weight:700;margin-bottom:4px;">'+(u.name||u.username||u._key)+'</div>'
-    +'<div style="font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:20px;">@'+(u.username||u._key)+'</div>'
-    +'<div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px;">Rol</div>'
-    +'<div id="role-options" style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px;"></div>'
-    +'<button id="save-role-btn" onclick="saveUserRole(\''+u._key+'\')" style="width:100%;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-family:var(--mono);font-size:13px;font-weight:700;cursor:pointer;">Guardar cambios</button>';
-
-  var optContainer=document.getElementById('role-options');
-  roles.forEach(function(r){
-    var opt=document.createElement('div');
-    opt.id='role-opt-'+r;
-    opt.dataset.role=r;
-    var isSelected=r===selectedRole;
-    opt.style.cssText='display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;border:2px solid '+(isSelected?(roleColors[r]||'#888'):'rgba(255,255,255,0.1)')+';cursor:pointer;background:'+(isSelected?'rgba(255,255,255,0.06)':'transparent')+';transition:all 0.15s;';
-    opt.innerHTML='<div style="width:12px;height:12px;border-radius:50%;background:'+(roleColors[r]||'#888')+'"></div>'
-      +'<div style="flex:1;font-family:var(--font);font-size:16px;font-weight:700;color:'+(roleColors[r]||'#888')+';">'+(roleLabels[r]||r)+'</div>'
-      +(isSelected?'<span style="color:var(--accent);font-size:16px;">✓</span>':'');
-    opt.onclick=function(){
-      selectedRole=r;
-      document.getElementById('save-role-btn')._newRole=r;
-      roles.forEach(function(x){
-        var el=document.getElementById('role-opt-'+x);
-        if(!el)return;
-        var sel=x===r;
-        el.style.border='2px solid '+(sel?(roleColors[x]||'#888'):'rgba(255,255,255,0.1)');
-        el.style.background=sel?'rgba(255,255,255,0.06)':'transparent';
-        el.innerHTML='<div style="width:12px;height:12px;border-radius:50%;background:'+(roleColors[x]||'#888')+'"></div>'
-          +'<div style="flex:1;font-family:var(--font);font-size:16px;font-weight:700;color:'+(roleColors[x]||'#888')+';">'+(roleLabels[x]||x)+'</div>'
-          +(sel?'<span style="color:var(--accent);font-size:16px;">✓</span>':'');
-      });
-    };
-    optContainer.appendChild(opt);
-  });
-  document.getElementById('save-role-btn')._key=u._key;
-  document.getElementById('save-role-btn')._username=u.username||u._key;
-  document.getElementById('save-role-btn')._newRole=selectedRole;
-}
-
-function saveUserRole(key){
-  var btn=document.getElementById('save-role-btn');
-  var newRole=btn._newRole;
-  var username=btn._username;
-  if(!confirm('¿Cambiar el rol de @'+username+' a "'+newRole+'"?')) return;
-  db.ref('users/'+key+'/role').set(newRole).then(function(){
-    toast('✓ @'+username+' → '+newRole);
-    // Update local cache and go back to list
-    var u=_allUsers.find(function(x){return x._key===key;});
-    if(u) u.role=newRole;
-    renderUsersList();
-  }).catch(function(e){toast('Error: '+e.message);});
-}
-
-function closeUsers(){
-  document.getElementById('users-sheet').style.display='none';
-  document.getElementById('users-overlay').style.display='none';
-}
 
 // ── ADMIN TEST DATA ──
 var _NAMES=['Alex','Sam','Jordan','Taylor','Morgan','Casey','Riley','Drew','Quinn','Blake','Avery','Jamie','Skyler','Logan','Reese','Parker','Hayden','Dakota','Sage','Rowan'];
@@ -881,12 +774,6 @@ function initAdminPanel(){
   } else {
     ap.style.display='none';
   }
-  // Users button: owner only
-  try{
-    var _u2=JSON.parse(sessionStorage.getItem('hs_currentUser')||localStorage.getItem('hs_currentUser'));
-    var usersBtn=document.getElementById('users-btn');
-    if(usersBtn) usersBtn.style.display=(_u2&&_u2.role==='owner')?'block':'none';
-  }catch(e){}
 }
 
 checkAuth();
