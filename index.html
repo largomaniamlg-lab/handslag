@@ -2184,6 +2184,13 @@ function saveRoleEdit() {
   if (!_reUser || !_reSelectedRole) return;
   const { username, currentRole, name, uid } = _reUser;
   if (_reSelectedRole === currentRole) { closeRoleEditor(); return; }
+  // If editing own owner account → activate preview mode instead of changing real role
+  if (currentUser && currentUser.role === 'owner' && uid === currentUser.uid) {
+    closeRoleEditor();
+    setPreviewRole(_reSelectedRole);
+    showToast('👁 Vista: ' + _reSelectedRole + ' — pulsa SALIR para volver a owner');
+    return;
+  }
   if (!confirm(`¿Cambiar el rol de ${name} (@${username}) de "${currentRole}" a "${_reSelectedRole}"?`)) return;
   const u = users.find(x => x.username === username);
   const key = uid || (u && u.uid);
