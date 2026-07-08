@@ -434,11 +434,51 @@ function renderObjects(){
   });
 }
 
+function tableCenter(t){
+  if(t.type==='circle') return {x:t.cx,y:t.cy};
+  return {x:(t.x||0)+(t.w||72)/2, y:(t.y||0)+(t.h||72)/2};
+}
+
 function render(){
   renderRoom();
   renderObjects();
   var layer=document.getElementById('tables-layer');
   while(layer.firstChild)layer.removeChild(layer.firstChild);
+
+  // Draw group envelope around linked table pairs
+  var drawn={};
+  tables.forEach(function(t){
+    if(!t.linkedTo) return;
+    var key=[Math.min(t.id,t.linkedTo),Math.max(t.id,t.linkedTo)].join('-');
+    if(drawn[key]) return;
+    drawn[key]=true;
+    var partner=tables.find(function(x){return x.id===t.linkedTo;});
+    if(!partner) return;
+    // Compute bounding box around both tables
+    var pad=14;
+    function tBounds(tb){
+      if(tb.type==='circle') return {x:tb.cx-(tb.r||37),y:tb.cy-(tb.r||37),w:(tb.r||37)*2,h:(tb.r||37)*2};
+      return {x:tb.x||0,y:tb.y||0,w:tb.w||72,h:tb.h||72};
+    }
+    var b1=tBounds(t), b2=tBounds(partner);
+    var minX=Math.min(b1.x,b2.x)-pad;
+    var minY=Math.min(b1.y,b2.y)-pad;
+    var maxX=Math.max(b1.x+b1.w,b2.x+b2.w)+pad;
+    var maxY=Math.max(b1.y+b1.h,b2.y+b2.h)+pad;
+    // Outer glow rect
+    var glow=svgEl('rect',{x:minX-3,y:minY-3,width:maxX-minX+6,height:maxY-minY+6,rx:'18',fill:'rgba(180,79,255,0.08)',stroke:'rgba(180,79,255,0.25)','stroke-width':'6','pointer-events':'none'});
+    layer.appendChild(glow);
+    // Dashed border
+    var env=svgEl('rect',{x:minX,y:minY,width:maxX-minX,height:maxY-minY,rx:'14',fill:'none',stroke:'#b44fff','stroke-width':'2.5','stroke-dasharray':'8,4',opacity:'0.9','pointer-events':'none'});
+    layer.appendChild(env);
+    // Label top-center
+    var lx=(minX+maxX)/2, ly=minY;
+    var pill=svgEl('rect',{x:lx-30,y:ly-13,width:60,height:22,rx:'11',fill:'#b44fff','pointer-events':'none'});
+    var lbl=svgEl('text',{x:lx,y:ly+1,'text-anchor':'middle','dominant-baseline':'middle','font-size':'12','font-weight':'700','font-family':'Space Mono,monospace',fill:'#fff','pointer-events':'none'});
+    lbl.textContent='GRUPO';
+    layer.appendChild(pill);
+    layer.appendChild(lbl);
+  });
   tables.forEach(function(t){
     var g=document.createElementNS(NS,'g');
     g.setAttribute('class','tbl-g');
