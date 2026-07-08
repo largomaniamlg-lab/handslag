@@ -234,6 +234,14 @@ function switchToMap(mapId){
     var raw=s.val();
     if(raw){
       var arr=(Array.isArray(raw)?raw:Object.values(raw)).filter(function(x){return x&&x!==null&&typeof x==='object'&&!('__v' in x);});
+      // Migrate legacy linkedTo → links array
+      arr.forEach(function(t){
+        if(t.linkedTo&&(!t.links||!t.links.length)){
+          t.links=[t.linkedTo];
+          delete t.linkedTo;
+        }
+        if(!t.links)t.links=[];
+      });
       tables=arr;
       if(arr.length)nextId=Math.max(nextId,...arr.map(function(t){return t.id||0;}))+1;
       dbg('tables: '+arr.length);
@@ -308,7 +316,7 @@ function _saveTablesFirebase(){
     else{o.x=t.x;o.y=t.y;o.w=t.w||72;o.h=t.h||72;}
     if(t.cap)o.cap=t.cap;
     if(t.label)o.label=t.label;
-    if(t.linkedTo)o.linkedTo=t.linkedTo;
+    if(t.links&&t.links.length)o.links=t.links.slice();
     return o;
   }));
 }
@@ -336,10 +344,12 @@ function _linkSearch(){
            (x.label||'').toLowerCase().indexOf(v.toLowerCase())>=0;
   }):others;
   var items=filtered.map(function(x){
-    var already=x.linkedTo&&x.linkedTo!==src.id;
-    return '<button onclick="doLink('+x.id+')" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 14px;margin-bottom:6px;background:var(--surface2);border:1px solid '+(already?'rgba(180,79,255,0.3)':'var(--border)')+';border-radius:10px;color:var(--text);font-family:var(--font);font-size:16px;font-weight:700;cursor:pointer;">'
+    var alreadyLinkedToSrc=x.links&&x.links.indexOf(src.id)>=0;
+    var alreadyLinkedElsewhere=x.links&&x.links.length>0&&!alreadyLinkedToSrc;
+    var borderCol=alreadyLinkedToSrc?'rgba(180,79,255,0.6)':alreadyLinkedElsewhere?'rgba(180,79,255,0.3)':'var(--border)';
+    return '<button onclick="doLink('+x.id+')" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 14px;margin-bottom:6px;background:var(--surface2);border:1px solid '+borderCol+';border-radius:10px;color:var(--text);font-family:var(--font);font-size:16px;font-weight:700;cursor:pointer;">'
       +'<span style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;">'+x.name+'</span>'
-      +(already?'<span style="color:#b44fff;font-size:11px;">'+mt.alreadyLinked+'</span>':'<span>Mesa '+x.name+'</span>')
+      +(alreadyLinkedToSrc?'<span style="color:#b44fff;font-size:11px;">'+mt.alreadyLinked+'</span>':'<span>Mesa '+x.name+(alreadyLinkedElsewhere?' 🔗':'')+'</span>')
       +'</button>';
   }).join('');
   if(!filtered.length) items='<div style="color:var(--muted);font-family:var(--mono);font-size:12px;text-align:center;padding:16px;">'+mt.noResults+'</div>';
@@ -362,25 +372,27 @@ function doLink(targetId){
   var src=_currentInfoTable;
   var tgt=tables.find(function(x){return x.id===targetId;});
   if(!src||!tgt) return;
-  src.linkedTo=tgt.id;
-  tgt.linkedTo=src.id;
+  if(!src.links)src.links=[];
+  if(!tgt.links)tgt.links=[];
+  if(src.links.indexOf(tgt.id)<0)src.links.push(tgt.id);
+  if(tgt.links.indexOf(src.id)<0)tgt.links.push(src.id);
   _highlightTable(null, false);
   _saveTablesFirebase();
   render();
   toast('🔗 '+src.name+' → '+tgt.name);
-  closeInfo();
+  openInfo(src);
 }
 
-function doUnlink(tableId){
+function doUnlink(tableId, partnerId){
   var t=tables.find(function(x){return x.id===tableId;});
-  if(!t||!t.linkedTo) return;
-  var partner=tables.find(function(x){return x.id===t.linkedTo;});
-  t.linkedTo=null; t.linkedGroup=null;
-  if(partner){partner.linkedTo=null;partner.linkedGroup=null;}
+  if(!t) return;
+  var partner=tables.find(function(x){return x.id===partnerId;});
+  if(t.links)t.links=t.links.filter(function(id){return id!==partnerId;});
+  if(partner&&partner.links)partner.links=partner.links.filter(function(id){return id!==tableId;});
   _saveTablesFirebase();
   render();
   toast(mt.unlinkBtn+' ✓');
-  closeInfo();
+  openInfo(t);
 }
 
 function loadTableStats(){
@@ -514,38 +526,36 @@ function render(){
   var layer=document.getElementById('tables-layer');
   while(layer.firstChild)layer.removeChild(layer.firstChild);
 
-  // Draw connection line between linked table pairs
+  // Draw connection lines between linked table pairs
+  function tCenter(tb){
+    if(tb.type==='circle') return {x:tb.cx,y:tb.cy};
+    return {x:(tb.x||0)+(tb.w||72)/2,y:(tb.y||0)+(tb.h||72)/2};
+  }
   var drawn={};
   tables.forEach(function(t){
-    if(!t.linkedTo) return;
-    var key=[Math.min(t.id,t.linkedTo),Math.max(t.id,t.linkedTo)].join('-');
-    if(drawn[key]) return;
-    drawn[key]=true;
-    var partner=tables.find(function(x){return x.id===t.linkedTo;});
-    if(!partner) return;
-    function tCenter(tb){
-      if(tb.type==='circle') return {x:tb.cx,y:tb.cy};
-      return {x:(tb.x||0)+(tb.w||72)/2,y:(tb.y||0)+(tb.h||72)/2};
-    }
-    var c1=tCenter(t), c2=tCenter(partner);
-    var mx=(c1.x+c2.x)/2, my=(c1.y+c2.y)/2;
-    // Glow line
-    var glow=svgEl('line',{x1:c1.x,y1:c1.y,x2:c2.x,y2:c2.y,stroke:'rgba(180,79,255,0.25)','stroke-width':'10','stroke-linecap':'round','pointer-events':'none'});
-    layer.appendChild(glow);
-    // Main dashed line
-    var line=svgEl('line',{x1:c1.x,y1:c1.y,x2:c2.x,y2:c2.y,stroke:'#b44fff','stroke-width':'2.5','stroke-dasharray':'8,5','stroke-linecap':'round',opacity:'0.9','pointer-events':'none'});
-    layer.appendChild(line);
-    // Dots at each end
-    [c1,c2].forEach(function(c){
-      var dot=svgEl('circle',{cx:c.x,cy:c.y,r:'5',fill:'#b44fff',opacity:'0.8','pointer-events':'none'});
-      layer.appendChild(dot);
+    if(!t.links||!t.links.length) return;
+    t.links.forEach(function(partnerId){
+      var key=[Math.min(t.id,partnerId),Math.max(t.id,partnerId)].join('-');
+      if(drawn[key]) return;
+      drawn[key]=true;
+      var partner=tables.find(function(x){return x.id===partnerId;});
+      if(!partner) return;
+      var c1=tCenter(t), c2=tCenter(partner);
+      var mx=(c1.x+c2.x)/2, my=(c1.y+c2.y)/2;
+      var glow=svgEl('line',{x1:c1.x,y1:c1.y,x2:c2.x,y2:c2.y,stroke:'rgba(180,79,255,0.25)','stroke-width':'10','stroke-linecap':'round','pointer-events':'none'});
+      layer.appendChild(glow);
+      var line=svgEl('line',{x1:c1.x,y1:c1.y,x2:c2.x,y2:c2.y,stroke:'#b44fff','stroke-width':'2.5','stroke-dasharray':'8,5','stroke-linecap':'round',opacity:'0.9','pointer-events':'none'});
+      layer.appendChild(line);
+      [c1,c2].forEach(function(c){
+        var dot=svgEl('circle',{cx:c.x,cy:c.y,r:'5',fill:'#b44fff',opacity:'0.8','pointer-events':'none'});
+        layer.appendChild(dot);
+      });
+      var pill=svgEl('rect',{x:mx-28,y:my-11,width:56,height:22,rx:'11',fill:'#b44fff','pointer-events':'none'});
+      var lbl=svgEl('text',{x:mx,y:my+1,'text-anchor':'middle','dominant-baseline':'middle','font-size':'11','font-weight':'700','font-family':'Space Mono,monospace',fill:'#fff','pointer-events':'none'});
+      lbl.textContent='GRUPO';
+      layer.appendChild(pill);
+      layer.appendChild(lbl);
     });
-    // Label at midpoint
-    var pill=svgEl('rect',{x:mx-28,y:my-11,width:56,height:22,rx:'11',fill:'#b44fff','pointer-events':'none'});
-    var lbl=svgEl('text',{x:mx,y:my+1,'text-anchor':'middle','dominant-baseline':'middle','font-size':'11','font-weight':'700','font-family':'Space Mono,monospace',fill:'#fff','pointer-events':'none'});
-    lbl.textContent='GRUPO';
-    layer.appendChild(pill);
-    layer.appendChild(lbl);
   });
   tables.forEach(function(t){
     var g=document.createElementNS(NS,'g');
@@ -561,10 +571,10 @@ function render(){
     var overCapacity=maxP>0&&assigned>maxP;
     var atCapacity=maxP>0&&assigned===maxP;
 
-    // Determine if this is a "secondary" table — linked, no reservation here, but partner has one
-    var partner=t.linkedTo?tables.find(function(x){return x.id===t.linkedTo;}):null;
-    var partnerStat=partner?tableStats[String(partner.name).toLowerCase()]:null;
-    var isSecondary=!!t.linkedTo&&!occupied&&!!partnerStat;
+    // Determine if this is a "secondary" table — linked, no reservation here, but a partner has one
+    var linkedPartners=(t.links||[]).map(function(id){return tables.find(function(x){return x.id===id;});}).filter(Boolean);
+    var partnerStat=linkedPartners.reduce(function(found,p){return found||(tableStats[String(p.name).toLowerCase()]||null);},null);
+    var isSecondary=linkedPartners.length>0&&!occupied&&!!partnerStat;
 
     var fillColor,strokeColor,strokeW='3',numColor;
     if(isSecondary){
@@ -584,7 +594,7 @@ function render(){
       fillColor='#fff'; strokeColor='#33312c'; numColor='#33312c';
     }
 
-    var isLinked=!!t.linkedTo;
+    var isLinked=!!(t.links&&t.links.length);
     var shape,tx,ty;
     if(t.type==='circle'){
       var r=t.r||37;
@@ -654,12 +664,16 @@ function openInfo(t){
     clearBtn.style.display='none';
   }
   var linkBtn=document.getElementById('info-link-btn');
-  if(t.linkedTo){
-    var partner=tables.find(function(x){return x.id===t.linkedTo;});
+  if(t.links&&t.links.length){
     linkBtn.style.display='block';
-    var pName=partner?partner.label||partner.name:'?';
-    var unlinkBtn=_isPriv?'<button onclick="doUnlink('+t.id+')" style="margin-top:6px;width:100%;padding:6px;background:transparent;border:1px solid rgba(180,79,255,0.3);border-radius:6px;color:rgba(180,79,255,0.7);font-family:var(--mono);font-size:10px;cursor:pointer;">'+mt.unlinkBtn+'</button>':'';
-    linkBtn.innerHTML='<div style="padding:10px 12px;background:rgba(180,79,255,0.12);border:1px solid rgba(180,79,255,0.4);border-radius:10px;color:#b44fff;font-family:var(--font);font-size:14px;font-weight:700;">'+mt.linkedWith+' '+pName+'</div>'+unlinkBtn;
+    var linkedHtml=t.links.map(function(pid){
+      var partner=tables.find(function(x){return x.id===pid;});
+      var pName=partner?partner.label||partner.name:'?';
+      var unlinkBtn=_isPriv?'<button onclick="doUnlink('+t.id+','+pid+')" style="margin-left:8px;background:transparent;border:none;color:rgba(180,79,255,0.7);font-family:var(--mono);font-size:11px;cursor:pointer;padding:0;">✕</button>':'';
+      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(180,79,255,0.12);border:1px solid rgba(180,79,255,0.4);border-radius:10px;color:#b44fff;font-family:var(--font);font-size:14px;font-weight:700;margin-bottom:6px;">🔗 '+pName+unlinkBtn+'</div>';
+    }).join('');
+    var addLinkBtn=_isPriv?'<button onclick="linkTable(_currentInfoTable)" style="width:100%;padding:6px 12px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:var(--font);font-size:12px;cursor:pointer;margin-top:2px;">'+mt.linkBtn+'</button>':'';
+    linkBtn.innerHTML=linkedHtml+addLinkBtn;
   } else if(_isPriv){
     linkBtn.style.display='block';
     linkBtn.innerHTML='<button onclick="linkTable(_currentInfoTable)" style="width:100%;padding:8px 12px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:var(--font);font-size:13px;cursor:pointer;">'+mt.linkBtn+'</button>';
@@ -805,10 +819,12 @@ function clearTableData(tableId){
     return Promise.all(removes);
   }));
   // Remove links
-  if(t.linkedTo){
-    var partner=tables.find(function(x){return x.id===t.linkedTo;});
-    if(partner){partner.linkedTo=null;partner.linkedGroup=null;}
-    t.linkedTo=null;t.linkedGroup=null;
+  if(t.links&&t.links.length){
+    t.links.forEach(function(pid){
+      var partner=tables.find(function(x){return x.id===pid;});
+      if(partner&&partner.links)partner.links=partner.links.filter(function(id){return id!==t.id;});
+    });
+    t.links=[];
     ops.push(Promise.resolve(_saveTablesFirebase()));
   }
   Promise.all(ops).then(function(){
@@ -978,18 +994,11 @@ function createTestData(){
   for(var i=0;i+1<remaining.length&&i<4;i+=2){
     var primary=remaining[i];
     var secondary=remaining[i+1];
-    primary.linkedTo=secondary.id;
-    secondary.linkedTo=primary.id;
-    // Persist the linking to Firebase
-    writes.push(db.ref('mapa_v2/'+currentMapId+'/tables').set(tables.map(function(t){
-      var o={id:t.id,name:t.name,type:t.type};
-      if(t.type==='circle'){o.cx=t.cx;o.cy=t.cy;o.r=t.r||37;}
-      else{o.x=t.x;o.y=t.y;o.w=t.w||72;o.h=t.h||72;}
-      if(t.cap)o.cap=t.cap;
-      if(t.label)o.label=t.label;
-      if(t.linkedTo)o.linkedTo=t.linkedTo;
-      return o;
-    })));
+    if(!primary.links)primary.links=[];
+    if(!secondary.links)secondary.links=[];
+    if(primary.links.indexOf(secondary.id)<0)primary.links.push(secondary.id);
+    if(secondary.links.indexOf(primary.id)<0)secondary.links.push(primary.id);
+    writes.push(_saveTablesFirebase());
     var size=Math.min(groups[soloCount+i]||4,12);
     var checkedIn=Math.random()>0.5;
     var paid=Math.random()>0.4;
@@ -1036,9 +1045,9 @@ function deleteTestData(){
     });
     // Also remove test-created links from current map tables
     if(currentMapId&&tables&&tables.length){
-      var hadLinks=tables.some(function(t){return t.linkedTo;});
+      var hadLinks=tables.some(function(t){return t.links&&t.links.length;});
       if(hadLinks){
-        tables.forEach(function(t){delete t.linkedTo;});
+        tables.forEach(function(t){t.links=[];});
         toDelete.push(db.ref('mapa_v2/'+currentMapId+'/tables').set(tables.map(function(t){
           var o={id:t.id,name:t.name,type:t.type};
           if(t.type==='circle'){o.cx=t.cx;o.cy=t.cy;o.r=t.r||37;}
