@@ -543,16 +543,18 @@ function openInfo(t){
   var _u=null;try{_u=JSON.parse(sessionStorage.getItem('hs_currentUser')||localStorage.getItem('hs_currentUser'));}catch(e){}
   var _isPriv=_u&&(_u.role==='owner'||_u.role==='admin');
   var linkBtn=document.getElementById('info-link-btn');
-  if(_isPriv){
-    if(t.linkedTo){
-      var partner=tables.find(function(x){return x.id===t.linkedTo;});
-      linkBtn.style.display='block';
-      linkBtn.innerHTML='<button onclick="doUnlink('+t.id+')" style="width:100%;padding:8px 12px;background:rgba(180,79,255,0.15);border:1px solid rgba(180,79,255,0.4);border-radius:8px;color:#b44fff;font-family:var(--font);font-size:13px;cursor:pointer;">🔗 Linked to '+(partner?partner.label||partner.name:'table')+' — Unlink</button>';
-    }else{
-      linkBtn.style.display='block';
-      linkBtn.innerHTML='<button onclick="linkTable(_currentInfoTable)" style="width:100%;padding:8px 12px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:var(--font);font-size:13px;cursor:pointer;">🔗 Link to another table</button>';
-    }
-  }else{linkBtn.style.display='none';}
+  if(t.linkedTo){
+    var partner=tables.find(function(x){return x.id===t.linkedTo;});
+    linkBtn.style.display='block';
+    var pName=partner?partner.label||partner.name:'?';
+    var unlinkBtn=_isPriv?'<button onclick="doUnlink('+t.id+')" style="margin-top:6px;width:100%;padding:6px;background:transparent;border:1px solid rgba(180,79,255,0.3);border-radius:6px;color:rgba(180,79,255,0.7);font-family:var(--mono);font-size:10px;cursor:pointer;">Desvincular</button>':'';
+    linkBtn.innerHTML='<div style="padding:10px 12px;background:rgba(180,79,255,0.12);border:1px solid rgba(180,79,255,0.4);border-radius:10px;color:#b44fff;font-family:var(--font);font-size:14px;font-weight:700;">🔗 Vinculada con mesa '+pName+'</div>'+unlinkBtn;
+  } else if(_isPriv){
+    linkBtn.style.display='block';
+    linkBtn.innerHTML='<button onclick="linkTable(_currentInfoTable)" style="width:100%;padding:8px 12px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:var(--font);font-size:13px;cursor:pointer;">🔗 Vincular con otra mesa</button>';
+  } else {
+    linkBtn.style.display='none';
+  }
   document.getElementById('info-name').textContent=t.name;
   document.getElementById('info-sub').textContent=t.sub||'';
   var timeEl=document.getElementById('info-time');
