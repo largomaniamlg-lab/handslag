@@ -559,6 +559,20 @@ body.light-mode .form-input, body.light-mode .form-select { background:#f0f0f0; 
     </div>
   </div>
 
+  <!-- Feedback -->
+  <div class="section-label">📝 Feedback</div>
+  <div style="margin-top:0.5rem;margin-bottom:1.5rem">
+    <div style="display:flex;gap:0.5rem;margin-bottom:0.5rem;flex-wrap:wrap" id="feedback-type-btns">
+      <button onclick="setFeedbackType('bug')"     class="lang-btn" id="fbt-bug"     style="flex:1;padding:0.5rem;min-width:60px">🐛 Bug</button>
+      <button onclick="setFeedbackType('ux')"      class="lang-btn" id="fbt-ux"      style="flex:1;padding:0.5rem;min-width:60px">🎨 UX</button>
+      <button onclick="setFeedbackType('mejora')"  class="lang-btn" id="fbt-mejora"  style="flex:1;padding:0.5rem;min-width:60px">⚡ Mejora</button>
+      <button onclick="setFeedbackType('idea')"    class="lang-btn" id="fbt-idea"    style="flex:1;padding:0.5rem;min-width:60px">💡 Idea</button>
+    </div>
+    <textarea id="feedback-text" placeholder="Escribe tu comentario..." style="width:100%;padding:0.6rem 0.8rem;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:var(--font);font-size:0.9rem;resize:none;height:80px;box-sizing:border-box;margin-bottom:0.5rem"></textarea>
+    <button onclick="submitFeedback()" class="btn-primary" style="width:100%;padding:0.65rem">Enviar →</button>
+    <div id="feedback-ok" style="display:none;color:var(--success);font-family:var(--mono);font-size:0.7rem;text-align:center;margin-top:0.4rem">✓ Feedback enviado</div>
+  </div>
+
   <!-- Color Theme -->
   <div class="section-label" id="lbl-settings-color">Accent Color</div>
   <div style="display:flex;gap:0.6rem;margin-top:0.5rem;margin-bottom:1.5rem;flex-wrap:wrap">
@@ -1917,6 +1931,35 @@ function changePassword() {
   fbUser.updatePassword(pw)
     .then(() => { ok.style.display='block'; ok.textContent = tx('pwUpdated'); document.getElementById('settingsNewPw').value=''; document.getElementById('settingsConfirmPw').value=''; })
     .catch(e => { err.style.display='block'; err.textContent = e.code==='auth/requires-recent-login' ? tx('loginAgain') : (e.message||'Error'); });
+}
+
+let _feedbackType = null;
+function setFeedbackType(type) {
+  _feedbackType = type;
+  ['bug','ux','mejora','idea'].forEach(t => {
+    const b = document.getElementById('fbt-'+t);
+    if (b) b.classList.toggle('active', t === type);
+  });
+}
+function submitFeedback() {
+  if (!currentUser) return;
+  const text = (document.getElementById('feedback-text').value || '').trim();
+  if (!text) { showToast('Escribe un comentario'); return; }
+  const entry = {
+    type: _feedbackType || 'general',
+    text,
+    user: currentUser.username || currentUser.name || '',
+    role: currentUser.role || '',
+    ts: new Date().toISOString()
+  };
+  db.ref('feedback').push(entry).then(() => {
+    document.getElementById('feedback-text').value = '';
+    _feedbackType = null;
+    setFeedbackType(null);
+    const ok = document.getElementById('feedback-ok');
+    ok.style.display = 'block';
+    setTimeout(() => { ok.style.display = 'none'; }, 3000);
+  });
 }
 
 function changeDisplayName() {

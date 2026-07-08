@@ -81,6 +81,11 @@
 
     // ─── catch-all ───────────────────────────────────────────────────────────
     // Deny everything else
+    "feedback": {
+      ".read":  "auth != null && root.child('users/' + auth.uid + '/role').val() === 'owner'",
+      ".write": "auth != null"
+    },
+
     "$other": {
       ".read":  false,
       ".write": false
