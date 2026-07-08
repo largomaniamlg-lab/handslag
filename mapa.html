@@ -234,7 +234,12 @@ function grantAccess(user){
     ]).then(function(snaps){
       var mapsSnap=snaps[0], activeSnap=snaps[1];
       var mapsObj=mapsSnap.val()||{};
-      var mapIds=Object.keys(mapsObj).sort();
+      var _mapOrder=['main-bar','backyard','golden-chimp'];
+      var mapIds=Object.keys(mapsObj).sort(function(a,b){
+        var ai=_mapOrder.indexOf(a),bi=_mapOrder.indexOf(b);
+        if(ai<0)ai=999; if(bi<0)bi=999;
+        return ai!==bi?ai-bi:a.localeCompare(b);
+      });
       var activeMap=activeSnap.val()||mapIds[0]||'main';
       if(mapIds.length===0)mapIds=[activeMap];
       if(mapIds.indexOf(activeMap)<0)activeMap=mapIds[0];
