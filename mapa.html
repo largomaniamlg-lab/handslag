@@ -116,6 +116,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 <div id="toast"></div>
 
+<!-- Admin test panel — visible only with ?admin=1 -->
+<div id="admin-panel" style="display:none;position:fixed;bottom:70px;right:14px;z-index:500;display:flex;flex-direction:column;gap:8px;align-items:flex-end">
+  <button onclick="createTestData()" style="background:#e67e22;color:#fff;border:none;border-radius:10px;padding:10px 16px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.4)">+ Datos de prueba</button>
+  <button onclick="deleteTestData()" style="background:#c0392b;color:#fff;border:none;border-radius:10px;padding:10px 16px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.4)">🗑 Borrar prueba</button>
+</div>
+
 <script>
 function dbg(msg){var el=document.getElementById('dbg');if(el){el.textContent+=(new Date().toISOString().slice(11,19))+' '+msg+'\n';el.scrollTop=el.scrollHeight;}console.log('[DBG]',msg);}
 window.onerror=function(msg,src,line){dbg('ERROR: '+msg+' ('+src+':'+line+')');};
@@ -614,6 +620,75 @@ function closeInfo(){
 }
 
 function toast(msg){var el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(function(){el.classList.remove('show');},2200);}
+
+// ── ADMIN TEST DATA ──
+var _NAMES=['Alex','Sam','Jordan','Taylor','Morgan','Casey','Riley','Drew','Quinn','Blake','Avery','Jamie','Skyler','Logan','Reese','Parker','Hayden','Dakota','Sage','Rowan'];
+var _NOTES=['Mesa VIP','Cumpleaños','Reserva grupo','Sin nota','Amigos del staff','Corporativo'];
+function _uid(){return Math.random().toString(36).slice(2,9);}
+function _pick(arr){return arr[Math.floor(Math.random()*arr.length)];}
+
+function createTestData(){
+  if(!db){toast('Sin conexión');return;}
+  if(!tables||tables.length===0){toast('Carga un mapa primero');return;}
+  var today=new Date().toISOString().slice(0,10);
+  var groups=[2,2,4,4,5,6,6,8,10];
+  // Pick random tables (up to all available)
+  var picks=tables.slice().sort(function(){return Math.random()-0.5;}).slice(0,Math.min(groups.length,tables.length));
+  var writes=[];
+  picks.forEach(function(t,i){
+    var size=groups[i]||2;
+    var checkedIn=Math.random()>0.45;
+    var paid=Math.random()>0.35;
+    var guest={
+      name:_pick(_NAMES)+' '+_pick(_NAMES),
+      table:String(t.name||t.id),
+      guests:size-1,
+      guestsIn:checkedIn?Math.floor(Math.random()*(size)):0,
+      checkedIn:checkedIn,
+      paid:paid,
+      paidAmount:paid?Math.round((size*80+Math.random()*200)/10)*10:0,
+      timeFrom:(Math.floor(Math.random()*3)+21)+':'+(Math.random()>0.5?'30':'00'),
+      notes:Math.random()>0.5?_pick(_NOTES):'',
+      testData:true
+    };
+    var ref=db.ref('events/'+today+'/test-'+_uid()+'/'+_uid());
+    writes.push(ref.set(guest));
+  });
+  Promise.all(writes).then(function(){
+    toast('✓ '+picks.length+' reservas de prueba creadas');
+  }).catch(function(e){toast('Error: '+e.message);});
+}
+
+function deleteTestData(){
+  if(!db){toast('Sin conexión');return;}
+  var today=new Date().toISOString().slice(0,10);
+  db.ref('events/'+today).once('value',function(snap){
+    var all=snap.val()||{};
+    var toDelete=[];
+    Object.keys(all).forEach(function(cat){
+      var catData=all[cat];
+      if(typeof catData==='object'&&catData!==null){
+        Object.keys(catData).forEach(function(gid){
+          if(catData[gid]&&catData[gid].testData===true){
+            toDelete.push(db.ref('events/'+today+'/'+cat+'/'+gid).remove());
+          }
+        });
+        // If category name starts with 'test-', remove whole category
+        if(cat.startsWith('test-')){
+          toDelete.push(db.ref('events/'+today+'/'+cat).remove());
+        }
+      }
+    });
+    if(toDelete.length===0){toast('No hay datos de prueba');return;}
+    Promise.all(toDelete).then(function(){toast('🗑 Datos de prueba eliminados');}).catch(function(e){toast('Error: '+e.message);});
+  });
+}
+
+// Show admin panel if ?admin=1
+if(new URLSearchParams(window.location.search).get('admin')==='1'){
+  var ap=document.getElementById('admin-panel');
+  if(ap)ap.style.display='flex';
+}
 
 checkAuth();
 </script>

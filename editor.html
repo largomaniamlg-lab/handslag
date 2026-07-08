@@ -607,11 +607,21 @@ function duplicateMap(srcId){
   renderMapsList();switchMap(newName);toast('"'+newName+'" duplicado de "'+srcId+'"');
 }
 function deleteMap(id){
-  if(!confirm('¿Eliminar mapa "'+id+'"?'))return;
+  if(!id||id==='__active'||id==='__maps'){toast('ID inválido');return;}
+  if(!confirm('¿Eliminar mapa "'+id+'"?\nEsto borra los datos de Firebase de este mapa.'))return;
   mapsList=mapsList.filter(function(m){return m!==id;});saveMapsLocal();
-  try{localStorage.removeItem(localKey(id));localStorage.removeItem(objKey(id));}catch(e){}
-  if(isOnline){try{db.ref('mapa_v2/'+id).remove();}catch(e){}}
-  if(activeMapId===id)switchMap('main');
+  try{localStorage.removeItem(localKey(id));localStorage.removeItem(objKey(id));localStorage.removeItem(roomKey(id));}catch(e){}
+  if(isOnline){
+    try{
+      db.ref('mapa_v2/'+id+'/tables').remove();
+      db.ref('mapa_v2/'+id+'/objects').remove();
+      db.ref('mapa_v2/'+id+'/room').remove();
+      // Update __maps list in Firebase
+      var meta={};mapsList.forEach(function(m){meta[m]=true;});
+      db.ref('mapa_v2/__maps').set(meta);
+    }catch(e){}
+  }
+  if(activeMapId===id){var next=mapsList[0]||'main';switchMap(next);}
   renderMapsList();
 }
 function createNewMap(){
