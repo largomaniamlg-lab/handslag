@@ -1742,6 +1742,37 @@ function _renderAdminHtml() {
 
   document.getElementById('adminUserList').innerHTML = html;
 
+  // Feedback inbox — owner only
+  if (f.isOwner) {
+    if (!document.getElementById('admin-feedback-section')) {
+      const section = document.createElement('div');
+      section.id = 'admin-feedback-section';
+      section.style.marginTop = '1.5rem';
+      section.innerHTML = '<div class="section-label" style="margin-bottom:0.5rem">📝 Feedback</div><div id="feedback-inbox"></div>';
+      document.getElementById('adminUserList').parentElement.appendChild(section);
+    }
+    if (_feedbackListenerAttached) return;
+    _feedbackListenerAttached = true;
+    db.ref('feedback').on('value', snap => {
+      const entries = [];
+      snap.forEach(c => { entries.push(c.val()); });
+      entries.sort((a,b) => (b.ts||'').localeCompare(a.ts||'')); // newest first
+      const typeIcon = {bug:'🐛',ux:'🎨',mejora:'⚡',idea:'💡',general:'📝'};
+      const fbHtml = entries.length
+        ? entries.map(e => `
+          <div style="padding:10px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--surface2)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+              <span style="font-size:13px;font-weight:700">${typeIcon[e.type]||'📝'} ${(e.type||'').toUpperCase()}</span>
+              <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">@${_esc(e.user||'')} · ${(e.ts||'').slice(11,16)}</span>
+            </div>
+            <div style="font-size:14px;color:var(--text)">${_esc(e.text||'')}</div>
+          </div>`).join('')
+        : '<div style="color:var(--muted);font-family:var(--mono);font-size:12px;text-align:center;padding:16px">No feedback yet</div>';
+      const wrap = document.getElementById('feedback-inbox');
+      if (wrap) wrap.innerHTML = fbHtml;
+    });
+  }
+
   // Activity log — owner only
   const logWrap = document.getElementById('activityLogWrap');
   if (logWrap) logWrap.style.display = f.isOwner ? '' : 'none';
@@ -1934,6 +1965,7 @@ function changePassword() {
 }
 
 let _feedbackType = null;
+let _feedbackListenerAttached = false;
 function setFeedbackType(type) {
   _feedbackType = type;
   ['bug','ux','mejora','idea'].forEach(t => {
