@@ -52,7 +52,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 #legend{display:flex;gap:14px;padding:5px 14px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;}
 .leg{font-family:var(--mono);font-size:9px;color:var(--muted);display:flex;align-items:center;gap:4px;}
 .leg-dot{width:8px;height:8px;border-radius:50%;border:1.5px solid #33312c;}
-#map-tabs{display:flex;overflow-x:auto;gap:6px;padding:6px 10px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+#map-tabs{display:flex;overflow-x:auto;gap:6px;padding:6px 10px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
 #map-tabs::-webkit-scrollbar{display:none;}
 .map-tab{flex-shrink:0;padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);font-family:var(--mono);font-size:11px;cursor:pointer;white-space:nowrap;touch-action:manipulation;}
 .map-tab.active{background:rgba(180,79,255,0.2);border-color:var(--accent);color:var(--accent);font-weight:700;}
@@ -73,9 +73,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     <button class="hbtn" onclick="goBack()" id="btn-back-top">← Back</button>
     <span class="logo">Håndslag</span>
     <div class="spacer"></div>
+    <button id="users-btn" onclick="openUsers()" style="display:none;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:10px;padding:5px 10px;border-radius:7px;cursor:pointer;">👥 Usuarios</button>
     <div id="sync-dot"></div>
   </div>
-  <div id="map-tabs"></div>
+  <div style="display:flex;align-items:center;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;">
+    <div id="map-tabs" style="flex:1;min-width:0;"></div>
+    <div id="admin-panel" style="display:none;flex-shrink:0;padding:0 8px;gap:6px;align-items:center;"></div>
+  </div>
   <div id="modebar">
     <span id="hint" style="flex:1;text-align:center"></span>
   </div>
@@ -116,11 +120,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 <div id="toast"></div>
 
-<!-- Admin test panel — visible only with ?admin=1 -->
-<div id="admin-panel" style="display:none;position:fixed;bottom:70px;right:14px;z-index:500;display:flex;flex-direction:column;gap:8px;align-items:flex-end">
-  <button onclick="createTestData()" style="background:#e67e22;color:#fff;border:none;border-radius:10px;padding:10px 16px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.4)">+ Datos de prueba</button>
-  <button onclick="deleteTestData()" style="background:#c0392b;color:#fff;border:none;border-radius:10px;padding:10px 16px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.4)">🗑 Borrar prueba</button>
+<!-- Users panel (owner only) -->
+<div id="users-overlay" onclick="closeUsers()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:400;"></div>
+<div id="users-sheet" style="display:none;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:2px solid var(--accent);border-radius:20px 20px 0 0;padding:20px 20px 40px;z-index:401;max-height:80vh;overflow-y:auto;">
+  <button onclick="closeUsers()" style="position:absolute;top:16px;right:16px;background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer;">✕</button>
+  <div style="font-family:var(--font);font-size:22px;font-weight:700;margin-bottom:16px;">👥 Usuarios</div>
+  <div id="users-list"></div>
 </div>
+
 
 <script>
 function dbg(msg){var el=document.getElementById('dbg');if(el){el.textContent+=(new Date().toISOString().slice(11,19))+' '+msg+'\n';el.scrollTop=el.scrollHeight;}console.log('[DBG]',msg);}
@@ -172,7 +179,7 @@ const DEFAULT_TABLES=[
 
 let tables=[],tableStats={},nextId=200;
 
-function checkAuth(){ dbg('checkAuth called'); grantAccess({name:'Guest',role:'door'}); return; // auth bypassed
+function checkAuth(){ dbg('checkAuth called');
   var user=null;
   try{user=JSON.parse(sessionStorage.getItem('hs_currentUser'));}catch(e){}
   if(!user){try{user=JSON.parse(localStorage.getItem('hs_currentUser'));}catch(e){}}
@@ -243,6 +250,7 @@ function grantAccess(user){
   document.getElementById('app').style.display='flex';
   dbg('lock hidden, app shown');
   try{applyMapLang();dbg('applyMapLang OK');}catch(e){dbg('applyMapLang ERR: '+e.message);}
+  try{initAdminPanel();}catch(e){}
   tables=[]; objects=[]; room={w:1260,h:800};
   try{render();dbg('render OK');}catch(e){dbg('render ERR: '+e.message);}
   if(db){loadTableStats();dbg('loadTableStats called');}
@@ -490,14 +498,21 @@ function render(){
     var maxP=t.cap?parseInt(t.cap):0;
     var complete=occupied&&stat.checked>=stat.count;
     var expired=occupied&&!complete&&stat.expired&&!stat.anyCheckedIn;
-
-    // Capacity status
     var overCapacity=maxP>0&&assigned>maxP;
     var atCapacity=maxP>0&&assigned===maxP;
-    var partialCapacity=maxP>0&&assigned>0&&assigned<maxP;
 
-    var fillColor, strokeColor, strokeW='3', numColor;
-    if(overCapacity){
+    // Determine if this is a "secondary" table — linked, no reservation here, but partner has one
+    var partner=t.linkedTo?tables.find(function(x){return x.id===t.linkedTo;}):null;
+    var partnerStat=partner?tableStats[String(partner.name).toLowerCase()]:null;
+    var isSecondary=!!t.linkedTo&&!occupied&&!!partnerStat;
+
+    var fillColor,strokeColor,strokeW='3',numColor;
+    if(isSecondary){
+      // Mirror partner's color at reduced opacity — table is "absorbed" into primary
+      var ps=partnerStat;
+      var pc=ps.checked>=ps.count?'#27ae60':ps.expired?'#e05252':'#e8a838';
+      fillColor=pc; strokeColor='#b44fff'; strokeW='3'; numColor='rgba(255,255,255,0.5)';
+    } else if(overCapacity){
       fillColor='#c0392b'; strokeColor='#922b21'; strokeW='5'; numColor='#fff';
     } else if(atCapacity||complete){
       fillColor='#27ae60'; strokeColor='#1e8449'; numColor='#fff';
@@ -509,70 +524,56 @@ function render(){
       fillColor='#fff'; strokeColor='#33312c'; numColor='#33312c';
     }
 
-    // Linked table gets a purple border overlay
     var isLinked=!!t.linkedTo;
     var shape,tx,ty;
     if(t.type==='circle'){
       var r=t.r||37;
-      shape=svgEl('circle',{cx:t.cx,cy:t.cy,r:r,fill:fillColor,stroke:isLinked?'#b44fff':strokeColor,'stroke-width':isLinked?'5':strokeW,class:'tbl-shape'});
+      shape=svgEl('circle',{cx:t.cx,cy:t.cy,r:r,fill:fillColor,stroke:isLinked?'#b44fff':strokeColor,'stroke-width':isLinked?'4':strokeW,'opacity':isSecondary?'0.45':'1',class:'tbl-shape'});
       tx=t.cx; ty=t.cy+(occupied?-8:9);
     } else {
       var w=t.w||72,h=t.h||72;
-      shape=svgEl('rect',{x:t.x,y:t.y,width:w,height:h,rx:'7',fill:fillColor,stroke:isLinked?'#b44fff':strokeColor,'stroke-width':isLinked?'5':strokeW,class:'tbl-shape'});
+      shape=svgEl('rect',{x:t.x,y:t.y,width:w,height:h,rx:'7',fill:fillColor,stroke:isLinked?'#b44fff':strokeColor,'stroke-width':isLinked?'4':strokeW,'opacity':isSecondary?'0.45':'1',class:'tbl-shape'});
       tx=t.x+w/2; ty=t.y+h/2+(occupied?-8:10);
     }
     g.appendChild(shape);
 
-    // Linked: dashed secondary ring
-    if(isLinked){
-      var ring;
-      if(t.type==='circle'){
-        ring=svgEl('circle',{cx:t.cx,cy:t.cy,r:(t.r||37)+6,fill:'none',stroke:'#b44fff','stroke-width':'2','stroke-dasharray':'5,3','pointer-events':'none',opacity:'0.6'});
-      } else {
-        ring=svgEl('rect',{x:t.x-5,y:t.y-5,width:(t.w||72)+10,height:(t.h||72)+10,rx:'10',fill:'none',stroke:'#b44fff','stroke-width':'2','stroke-dasharray':'5,3','pointer-events':'none',opacity:'0.6'});
+    if(isSecondary){
+      // Secondary table: just show a faded number, no other info
+      var stxt=svgEl('text',{x:tx,y:ty+6,'text-anchor':'middle','font-size':String(t.name).length>2?'18':'22','font-weight':'700',fill:'rgba(255,255,255,0.4)','pointer-events':'none',opacity:'0.6'});
+      stxt.textContent=t.name;
+      g.appendChild(stxt);
+      // Click opens the primary table's info
+      g.addEventListener('click',function(e){e.stopPropagation();if(partner)openInfo(partner);});
+    } else {
+      // Primary or unlinked table — full rendering
+      var txt=svgEl('text',{x:tx,y:ty,'text-anchor':'middle','font-size':String(t.name).length>2?'22':'28','font-weight':'700',fill:numColor,'pointer-events':'none'});
+      txt.textContent=t.name;
+      g.appendChild(txt);
+
+      if(occupied&&assigned){
+        var capStr=maxP?assigned+'/'+maxP:String(assigned);
+        var capColor=overCapacity?'#f8c9c9':atCapacity?'#d5f5e3':'#fff';
+        var cnt=svgEl('text',{x:tx,y:ty+20,'text-anchor':'middle','font-size':'16','font-weight':'700',fill:capColor,'pointer-events':'none'});
+        cnt.textContent=capStr+'p';
+        g.appendChild(cnt);
+      } else if(!occupied&&maxP){
+        var cap0=svgEl('text',{x:tx,y:ty+18,'text-anchor':'middle','font-size':'13',fill:'#aaa','pointer-events':'none'});
+        cap0.textContent='máx '+maxP;
+        g.appendChild(cap0);
       }
-      g.appendChild(ring);
+
+      if(overCapacity){
+        var bx=t.type==='circle'?t.cx+(t.r||37)-8:t.x+(t.w||72)-8;
+        var by=t.type==='circle'?t.cy-(t.r||37)+8:t.y+8;
+        var badge=svgEl('circle',{cx:bx,cy:by,r:'10',fill:'#f39c12','pointer-events':'none'});
+        var badgeTxt=svgEl('text',{x:bx,y:by+4,'text-anchor':'middle','font-size':'12','font-weight':'700',fill:'#000','pointer-events':'none'});
+        badgeTxt.textContent='!';
+        g.appendChild(badge);g.appendChild(badgeTxt);
+      }
+
+      g.addEventListener('click',function(e){e.stopPropagation();openInfo(t);});
     }
 
-    // Table number
-    var txt=svgEl('text',{x:tx,y:ty,'text-anchor':'middle','font-size':String(t.name).length>2?'22':'28','font-weight':'700',fill:numColor,'pointer-events':'none'});
-    txt.textContent=t.name;
-    g.appendChild(txt);
-
-    // Guest count / capacity
-    if(occupied&&assigned){
-      var capStr=maxP?assigned+'/'+maxP:String(assigned);
-      var capColor=overCapacity?'#f8c9c9':atCapacity?'#d5f5e3':'#fff';
-      var cnt=svgEl('text',{x:tx,y:ty+20,'text-anchor':'middle','font-size':'16','font-weight':'700',fill:capColor,'pointer-events':'none'});
-      cnt.textContent=capStr+'p';
-      g.appendChild(cnt);
-    } else if(!occupied&&maxP){
-      // Show max capacity when empty
-      var cap0=svgEl('text',{x:tx,y:ty+18,'text-anchor':'middle','font-size':'13',fill:'#aaa','pointer-events':'none'});
-      cap0.textContent='máx '+maxP;
-      g.appendChild(cap0);
-    }
-
-    // Linked label
-    if(isLinked){
-      var lpartner=tables.find(function(x){return x.id===t.linkedTo;});
-      var ly=t.type==='circle'?t.cy+(t.r||37)+16:t.y+(t.h||72)+14;
-      var li=svgEl('text',{x:String(tx),y:String(ly),fill:'#b44fff','font-size':'11','font-weight':'700','font-family':'Space Mono,monospace','text-anchor':'middle','pointer-events':'none'});
-      li.textContent='🔗'+(lpartner?' '+lpartner.name:'');
-      g.appendChild(li);
-    }
-
-    // Over capacity warning badge
-    if(overCapacity){
-      var bx=t.type==='circle'?t.cx+(t.r||37)-8:t.x+(t.w||72)-8;
-      var by=t.type==='circle'?t.cy-(t.r||37)+8:t.y+8;
-      var badge=svgEl('circle',{cx:bx,cy:by,r:'10',fill:'#f39c12','pointer-events':'none'});
-      var badgeTxt=svgEl('text',{x:bx,y:by+4,'text-anchor':'middle','font-size':'12','font-weight':'700',fill:'#000','pointer-events':'none'});
-      badgeTxt.textContent='!';
-      g.appendChild(badge);g.appendChild(badgeTxt);
-    }
-
-    g.addEventListener('click',function(e){e.stopPropagation();openInfo(t);});
     layer.appendChild(g);
   });
 }
@@ -581,7 +582,7 @@ function render(){
 function openInfo(t){
   _currentInfoTable=t;
   var _u=null;try{_u=JSON.parse(sessionStorage.getItem('hs_currentUser')||localStorage.getItem('hs_currentUser'));}catch(e){}
-  var _isPriv=_u&&(_u.role==='owner'||_u.role==='admin');
+  var _isPriv=_u&&(_u.role==='owner'||_u.role==='admin'||_u.username==='maline');
   var linkBtn=document.getElementById('info-link-btn');
   if(t.linkedTo){
     var partner=tables.find(function(x){return x.id===t.linkedTo;});
@@ -663,6 +664,106 @@ function closeInfo(){
 
 function toast(msg){var el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(function(){el.classList.remove('show');},2200);}
 
+// ── USER MANAGEMENT (owner only) ──
+var _allUsers=[];
+var roleColors={owner:'#b44fff',admin:'#06c8e8',door:'#888'};
+var roleLabels={owner:'Owner','admin':'Admin',door:'Door'};
+
+function openUsers(){
+  if(!db){toast('Sin conexión');return;}
+  var sheet=document.getElementById('users-sheet');
+  var overlay=document.getElementById('users-overlay');
+  document.getElementById('users-list').innerHTML='<div style="font-family:var(--mono);font-size:12px;color:var(--muted)">Cargando...</div>';
+  sheet.style.display='block'; overlay.style.display='block';
+  db.ref('users').once('value',function(snap){
+    var all=snap.val()||{};
+    _allUsers=Object.entries(all).map(function(e){return Object.assign({_key:e[0]},e[1]);});
+    _allUsers.sort(function(a,b){return (a.username||'').localeCompare(b.username||'');});
+    renderUsersList();
+  });
+}
+
+function renderUsersList(){
+  var list=document.getElementById('users-list');
+  list.innerHTML='';
+  if(!_allUsers.length){list.innerHTML='<div style="color:var(--muted);font-family:var(--mono);font-size:12px;">No hay usuarios</div>';return;}
+  _allUsers.forEach(function(u){
+    var row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:10px;padding:12px 10px;border-bottom:1px solid rgba(255,255,255,0.07);cursor:pointer;border-radius:8px;';
+    row.onmouseover=function(){row.style.background='rgba(255,255,255,0.04)';};
+    row.onmouseout=function(){row.style.background='';};
+    var roleBadge='<span style="font-family:var(--mono);font-size:10px;font-weight:700;color:'+(roleColors[u.role]||'#888')+';background:rgba(255,255,255,0.07);padding:3px 8px;border-radius:20px;">'+(u.role||'?')+'</span>';
+    row.innerHTML='<div style="flex:1;">'
+      +'<div style="font-family:var(--font);font-size:18px;font-weight:700;">'+(u.name||u.username||u._key)+'</div>'
+      +'<div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px;">@'+(u.username||u._key)+'</div>'
+      +'</div>'+roleBadge
+      +'<span style="color:var(--muted);font-size:16px;">›</span>';
+    row.onclick=function(){openUserDetail(u);};
+    list.appendChild(row);
+  });
+}
+
+function openUserDetail(u){
+  var list=document.getElementById('users-list');
+  var roles=['owner','admin','door'];
+  var selectedRole=u.role||'door';
+  list.innerHTML='<button onclick="renderUsersList()" style="background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:11px;cursor:pointer;margin-bottom:16px;">← Volver</button>'
+    +'<div style="font-family:var(--font);font-size:24px;font-weight:700;margin-bottom:4px;">'+(u.name||u.username||u._key)+'</div>'
+    +'<div style="font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:20px;">@'+(u.username||u._key)+'</div>'
+    +'<div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px;">Rol</div>'
+    +'<div id="role-options" style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px;"></div>'
+    +'<button id="save-role-btn" onclick="saveUserRole(\''+u._key+'\')" style="width:100%;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-family:var(--mono);font-size:13px;font-weight:700;cursor:pointer;">Guardar cambios</button>';
+
+  var optContainer=document.getElementById('role-options');
+  roles.forEach(function(r){
+    var opt=document.createElement('div');
+    opt.id='role-opt-'+r;
+    opt.dataset.role=r;
+    var isSelected=r===selectedRole;
+    opt.style.cssText='display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;border:2px solid '+(isSelected?(roleColors[r]||'#888'):'rgba(255,255,255,0.1)')+';cursor:pointer;background:'+(isSelected?'rgba(255,255,255,0.06)':'transparent')+';transition:all 0.15s;';
+    opt.innerHTML='<div style="width:12px;height:12px;border-radius:50%;background:'+(roleColors[r]||'#888')+'"></div>'
+      +'<div style="flex:1;font-family:var(--font);font-size:16px;font-weight:700;color:'+(roleColors[r]||'#888')+';">'+(roleLabels[r]||r)+'</div>'
+      +(isSelected?'<span style="color:var(--accent);font-size:16px;">✓</span>':'');
+    opt.onclick=function(){
+      selectedRole=r;
+      document.getElementById('save-role-btn')._newRole=r;
+      roles.forEach(function(x){
+        var el=document.getElementById('role-opt-'+x);
+        if(!el)return;
+        var sel=x===r;
+        el.style.border='2px solid '+(sel?(roleColors[x]||'#888'):'rgba(255,255,255,0.1)');
+        el.style.background=sel?'rgba(255,255,255,0.06)':'transparent';
+        el.innerHTML='<div style="width:12px;height:12px;border-radius:50%;background:'+(roleColors[x]||'#888')+'"></div>'
+          +'<div style="flex:1;font-family:var(--font);font-size:16px;font-weight:700;color:'+(roleColors[x]||'#888')+';">'+(roleLabels[x]||x)+'</div>'
+          +(sel?'<span style="color:var(--accent);font-size:16px;">✓</span>':'');
+      });
+    };
+    optContainer.appendChild(opt);
+  });
+  document.getElementById('save-role-btn')._key=u._key;
+  document.getElementById('save-role-btn')._username=u.username||u._key;
+  document.getElementById('save-role-btn')._newRole=selectedRole;
+}
+
+function saveUserRole(key){
+  var btn=document.getElementById('save-role-btn');
+  var newRole=btn._newRole;
+  var username=btn._username;
+  if(!confirm('¿Cambiar el rol de @'+username+' a "'+newRole+'"?')) return;
+  db.ref('users/'+key+'/role').set(newRole).then(function(){
+    toast('✓ @'+username+' → '+newRole);
+    // Update local cache and go back to list
+    var u=_allUsers.find(function(x){return x._key===key;});
+    if(u) u.role=newRole;
+    renderUsersList();
+  }).catch(function(e){toast('Error: '+e.message);});
+}
+
+function closeUsers(){
+  document.getElementById('users-sheet').style.display='none';
+  document.getElementById('users-overlay').style.display='none';
+}
+
 // ── ADMIN TEST DATA ──
 var _NAMES=['Alex','Sam','Jordan','Taylor','Morgan','Casey','Riley','Drew','Quinn','Blake','Avery','Jamie','Skyler','Logan','Reese','Parker','Hayden','Dakota','Sage','Rowan'];
 var _NOTES=['Mesa VIP','Cumpleaños','Reserva grupo','Sin nota','Amigos del staff','Corporativo'];
@@ -670,14 +771,20 @@ function _uid(){return Math.random().toString(36).slice(2,9);}
 function _pick(arr){return arr[Math.floor(Math.random()*arr.length)];}
 
 function createTestData(){
-  if(!db){toast('Sin conexión');return;}
-  if(!tables||tables.length===0){toast('Carga un mapa primero');return;}
+  if(!db){toast('Error: sin Firebase');return;}
+  if(!currentMapId){toast('Error: sin mapa activo');return;}
+  if(!tables||tables.length===0){toast('Error: mapa sin mesas');return;}
+  toast('Creando datos...');
   var today=new Date().toISOString().slice(0,10);
-  var groups=[2,2,4,4,5,6,6,8,10];
-  // Pick random tables (up to all available)
-  var picks=tables.slice().sort(function(){return Math.random()-0.5;}).slice(0,Math.min(groups.length,tables.length));
+  var groups=[2,4,4,6,8,10];
+  var shuffled=tables.slice().sort(function(){return Math.random()-0.5;});
   var writes=[];
-  picks.forEach(function(t,i){
+  var reservedCount=0;
+
+  // First chunk: solo reservations
+  var soloCount=Math.ceil(groups.length*0.6);
+  var soloTables=shuffled.slice(0,Math.min(soloCount,shuffled.length));
+  soloTables.forEach(function(t,i){
     var size=groups[i]||2;
     var checkedIn=Math.random()>0.45;
     var paid=Math.random()>0.35;
@@ -685,19 +792,63 @@ function createTestData(){
       name:_pick(_NAMES)+' '+_pick(_NAMES),
       table:String(t.name||t.id),
       guests:size-1,
-      guestsIn:checkedIn?Math.floor(Math.random()*(size)):0,
-      checkedIn:checkedIn,
-      paid:paid,
+      guestsIn:checkedIn?Math.floor(Math.random()*size):0,
+      checkedIn:checkedIn,paid:paid,
       paidAmount:paid?Math.round((size*80+Math.random()*200)/10)*10:0,
       timeFrom:(Math.floor(Math.random()*3)+21)+':'+(Math.random()>0.5?'30':'00'),
       notes:Math.random()>0.5?_pick(_NOTES):'',
       testData:true
     };
-    var ref=db.ref('events/'+today+'/test-'+_uid()+'/'+_uid());
-    writes.push(ref.set(guest));
+    writes.push(db.ref('events/'+today+'/test-'+_uid()+'/'+_uid()).set(guest));
+    reservedCount++;
   });
+
+  // Remaining: link pairs — pick spatially close tables so the envelope isn't giant
+  var remaining=shuffled.slice(soloCount);
+  // Sort remaining by position so adjacent tables get paired
+  remaining.sort(function(a,b){
+    var ax=a.type==='circle'?a.cx:(a.x||0)+(a.w||72)/2;
+    var ay=a.type==='circle'?a.cy:(a.y||0)+(a.h||72)/2;
+    var bx=b.type==='circle'?b.cx:(b.x||0)+(b.w||72)/2;
+    var by=b.type==='circle'?b.cy:(b.y||0)+(b.h||72)/2;
+    return (ax+ay)-(bx+by);
+  });
+  for(var i=0;i+1<remaining.length&&i<4;i+=2){
+    var primary=remaining[i];
+    var secondary=remaining[i+1];
+    primary.linkedTo=secondary.id;
+    secondary.linkedTo=primary.id;
+    // Persist the linking to Firebase
+    writes.push(db.ref('mapa_v2/'+currentMapId+'/tables').set(tables.map(function(t){
+      var o={id:t.id,name:t.name,type:t.type};
+      if(t.type==='circle'){o.cx=t.cx;o.cy=t.cy;o.r=t.r||37;}
+      else{o.x=t.x;o.y=t.y;o.w=t.w||72;o.h=t.h||72;}
+      if(t.cap)o.cap=t.cap;
+      if(t.label)o.label=t.label;
+      if(t.linkedTo)o.linkedTo=t.linkedTo;
+      return o;
+    })));
+    var size=Math.min(groups[soloCount+i]||4,12);
+    var checkedIn=Math.random()>0.5;
+    var paid=Math.random()>0.4;
+    var guest={
+      name:_pick(_NAMES)+' '+_pick(_NAMES),
+      table:String(primary.name||primary.id),
+      guests:size-1,
+      guestsIn:checkedIn?Math.floor(Math.random()*size):0,
+      checkedIn:checkedIn,paid:paid,
+      paidAmount:paid?Math.round((size*80+Math.random()*200)/10)*10:0,
+      timeFrom:(Math.floor(Math.random()*3)+21)+':'+(Math.random()>0.5?'30':'00'),
+      notes:'Grupo vinculado · '+_pick(_NOTES),
+      testData:true
+    };
+    writes.push(db.ref('events/'+today+'/test-'+_uid()+'/'+_uid()).set(guest));
+    reservedCount++;
+  }
+
   Promise.all(writes).then(function(){
-    toast('✓ '+picks.length+' reservas de prueba creadas');
+    render();
+    toast('✓ '+reservedCount+' reservas + vínculos creados');
   }).catch(function(e){toast('Error: '+e.message);});
 }
 
@@ -721,15 +872,49 @@ function deleteTestData(){
         }
       }
     });
+    // Also remove test-created links from current map tables
+    if(currentMapId&&tables&&tables.length){
+      var hadLinks=tables.some(function(t){return t.linkedTo;});
+      if(hadLinks){
+        tables.forEach(function(t){delete t.linkedTo;});
+        toDelete.push(db.ref('mapa_v2/'+currentMapId+'/tables').set(tables.map(function(t){
+          var o={id:t.id,name:t.name,type:t.type};
+          if(t.type==='circle'){o.cx=t.cx;o.cy=t.cy;o.r=t.r||37;}
+          else{o.x=t.x;o.y=t.y;o.w=t.w||72;o.h=t.h||72;}
+          if(t.cap)o.cap=t.cap;
+          if(t.label)o.label=t.label;
+          return o;
+        })));
+      }
+    }
     if(toDelete.length===0){toast('No hay datos de prueba');return;}
-    Promise.all(toDelete).then(function(){toast('🗑 Datos de prueba eliminados');}).catch(function(e){toast('Error: '+e.message);});
+    Promise.all(toDelete).then(function(){render();toast('🗑 Datos de prueba eliminados');}).catch(function(e){toast('Error: '+e.message);});
   });
 }
 
-// Show admin panel if ?admin=1
-if(new URLSearchParams(window.location.search).get('admin')==='1'){
+var _adminMode=false;
+function initAdminPanel(){
+  try{
+    var u=JSON.parse(sessionStorage.getItem('hs_currentUser')||localStorage.getItem('hs_currentUser'));
+    _adminMode=u&&(u.role==='owner'||u.username==='maline');
+  }catch(e){_adminMode=false;}
+  // Also allow ?admin=1 override
+  if(new URLSearchParams(window.location.search).get('admin')==='1') _adminMode=true;
   var ap=document.getElementById('admin-panel');
-  if(ap)ap.style.display='flex';
+  if(!ap) return;
+  if(_adminMode){
+    ap.style.display='flex';
+    ap.innerHTML='<button onclick="createTestData()" style="background:#e67e22;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;">+ Prueba</button>'
+      +'<button onclick="deleteTestData()" style="background:#c0392b;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;">🗑 Borrar</button>';
+  } else {
+    ap.style.display='none';
+  }
+  // Users button: owner only
+  try{
+    var _u2=JSON.parse(sessionStorage.getItem('hs_currentUser')||localStorage.getItem('hs_currentUser'));
+    var usersBtn=document.getElementById('users-btn');
+    if(usersBtn) usersBtn.style.display=(_u2&&_u2.role==='owner')?'block':'none';
+  }catch(e){}
 }
 
 checkAuth();
